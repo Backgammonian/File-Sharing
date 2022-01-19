@@ -4,8 +4,14 @@
     xmlns:local="clr-namespace:FileSharing"
     xmlns:converters="clr-namespace:FileSharing.Converters">
 
+    <converters:BytesToMegabytesConverter x:Key="bytesToMegabytesConverter" />
     <converters:ConnectionStatusConverter x:Key="connectionStatusConverter" />
+    <converters:CryptoChannelConverter x:Key="cryptoChannelConverter" />
+    <converters:DateTimeConverter x:Key="dateTimeConverter" />
+    <converters:DownloadSpeedConverter x:Key="downloadSpeedConverter" />
     <converters:IPEndPointConverter x:Key="ipEndPointConverter" />
+    <converters:ProgressConverter x:Key="progressConverter" />
+    <converters:TimeSpanConverter x:Key="timeSpanConverter" />
 
     <Style x:Key="rectangleStyle" TargetType="Rectangle">
         <Setter Property="Width" Value="7" />
@@ -54,7 +60,7 @@
         <Setter Property="Padding" Value="5" />
     </Style>
 
-    <Style x:Key="serverEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="peerEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
         <Setter Property="Text" Value="Encrypted?"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsEstablished}" Value="True">
@@ -77,6 +83,61 @@
                     Path=IsSelected}" 
                 Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="cancellationStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+        <Setter Property="Text" Value="Cancelled"/>
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Setter Property="Foreground" Value="Blue" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCancelled}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="cancellationButton" TargetType="Button" BasedOn="{StaticResource baseButtonStyle}">
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Setter Property="IsEnabled" Value="True"/>
+        <Style.Triggers>
+            <DataTrigger 
+                Binding="{Binding RelativeSource={RelativeSource 
+                        Mode=FindAncestor, 
+                        AncestorType={x:Type ListBoxItem}},
+                        Path=IsSelected}" 
+                    Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsDownloaded}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Setter Property="IsEnabled" Value="False"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsCancelled}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Setter Property="IsEnabled" Value="False"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="finishTimeTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+        <Setter Property="Text" Value="Finish time"/>
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsFinished}" Value="True">
+                <Setter Property="Text" Value="{Binding FinishTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Finish time: {0}}"/>
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="hashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+        <Setter Property="Text" Value="Calculating hash..."/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding HasHash}" Value="True">
+                <Setter Property="Text" Value="{Binding Hash, StringFormat={}Hash: {0}}"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>

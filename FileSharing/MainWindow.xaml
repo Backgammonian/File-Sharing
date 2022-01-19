@@ -55,7 +55,86 @@
                                     </StackPanel>
                                 </TabItem.Header>
                                 <TabItem.Content>
-                                    Shared files List
+                                    <ListBox
+                                        ItemsSource="{Binding SharedFiles}"
+                                        SelectedItem="{Binding SharedFile}" 
+                                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel
+                                                    Style="{StaticResource stackPanelInListBoxStyle}">
+                                                    <TextBlock 
+                                                        Style="{StaticResource titleStyle}" 
+                                                        Text="{Binding Name}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource hashTextBlock}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Path, StringFormat={}Path: {0}}" />
+                                                    <Button 
+                                                        Style="{StaticResource popUpButtonStyle}"
+                                                        Command="{Binding DataContext.RemoveSharedFileCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                        <TextBlock
+                                                            Style="{StaticResource baseTextBlockStyle}"
+                                                            Text="Remove file">
+                                                        </TextBlock>
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </TabItem.Content>
+                            </TabItem>
+                            <TabItem>
+                                <TabItem.Header>
+                                    <StackPanel
+                                        Style="{StaticResource stackPanelStyle}">
+                                        <Ellipse
+                                            Style="{StaticResource ellipseStyle}"/>
+                                        <TextBlock
+                                            Style="{StaticResource baseTextBlockStyle}"
+                                            Text="Uploads">
+                                        </TextBlock>
+                                    </StackPanel>
+                                </TabItem.Header>
+                                <TabItem.Content>
+                                    <ListBox
+                                        ItemsSource="{Binding Uploads}"
+                                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel
+                                                    Style="{StaticResource stackPanelInListBoxStyle}">
+                                                    <TextBlock 
+                                                        Style="{StaticResource titleStyle}" 
+                                                        Text="{Binding Destination, Converter={StaticResource cryptoChannelConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding FileName, StringFormat={}File name: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding FileSize, Converter={StaticResource bytesToMegabytesConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding FileHash, StringFormat={}Hash: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Path=Progress, Converter={StaticResource progressConverter}, StringFormat={}Progress: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Start time: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource finishTimeTextBlock}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource cancellationStatus}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
                                 </TabItem.Content>
                             </TabItem>
                             <TabItem>
@@ -71,7 +150,34 @@
                                     </StackPanel>
                                 </TabItem.Header>
                                 <TabItem.Content>
-                                    Connected clients list
+                                    <ListBox
+                                        ItemsSource="{Binding Clients}"
+                                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel 
+                                                    Style="{StaticResource stackPanelInListBoxStyle}">
+                                                    <TextBlock 
+                                                        Style="{StaticResource titleStyle}" 
+                                                        Text="{Binding EndPoint, Converter={StaticResource ipEndPointConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource peerEncryptionStatus}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding ConnectionState, Converter={StaticResource connectionStatusConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Time of connection: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding ConnectionDuration, Converter={StaticResource timeSpanConverter}, StringFormat={}Connection duration: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding BytesUploaded, Converter={StaticResource bytesConverter}, StringFormat={}Bytes uploaded: {0}}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
                                 </TabItem.Content>
                             </TabItem>
                         </TabControl>
@@ -117,12 +223,94 @@
                                             Style="{StaticResource ellipseStyle}"/>
                                         <TextBlock
                                             Style="{StaticResource baseTextBlockStyle}"
+                                            Text="Available Files">
+                                        </TextBlock>
+                                    </StackPanel>
+                                </TabItem.Header>
+                                <TabItem.Content>
+                                    <ListBox
+                                        ItemsSource="{Binding AvailableFiles}"
+                                        SelectedItem="{Binding AvailableFile}" 
+                                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel 
+                                                    Style="{StaticResource stackPanelInListBoxStyle}">
+                                                    <TextBlock 
+                                                        Style="{StaticResource titleStyle}" 
+                                                        Text="{Binding Name}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Hash, StringFormat={}Hash: {0}}" />
+                                                    <Button 
+                                                        Style="{StaticResource popUpButtonStyle}"
+                                                        Command="{Binding DataContext.DownloadFileCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                        <TextBlock
+                                                            Style="{StaticResource baseTextBlockStyle}"
+                                                            Text="Download">
+                                                        </TextBlock>
+                                                    </Button>
+                                                </StackPanel>   
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </TabItem.Content>
+                            </TabItem>
+                            <TabItem>
+                                <TabItem.Header>
+                                    <StackPanel
+                                        Style="{StaticResource stackPanelStyle}">
+                                        <Ellipse
+                                            Style="{StaticResource ellipseStyle}"/>
+                                        <TextBlock
+                                            Style="{StaticResource baseTextBlockStyle}"
                                             Text="Downloads">
                                         </TextBlock>
                                     </StackPanel>
                                 </TabItem.Header>
                                 <TabItem.Content>
-                                    Downloads List
+                                    <ListBox
+                                        ItemsSource="{Binding Downloads}"
+                                        SelectedItem="{Binding SelectedDownload}" 
+                                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel 
+                                                    Style="{StaticResource stackPanelInListBoxStyle}">
+                                                    <TextBlock 
+                                                        Style="{StaticResource titleStyle}" 
+                                                        Text="{Binding Name}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Hash, StringFormat={}Hash: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Progress, Converter={StaticResource progressConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource cancellationStatus}"/>
+                                                    <Button
+                                                        Style="{StaticResource cancellationButton}"
+                                                        Command="{Binding DataContext.CancelDownloadCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                        <TextBlock
+                                                            Style="{StaticResource baseTextBlockStyle}"
+                                                            Text="Cancel download">
+                                                        </TextBlock>
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
                                 </TabItem.Content>
                             </TabItem>
                             <TabItem>
@@ -152,7 +340,7 @@
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding ConnectionState, Converter={StaticResource connectionStatusConverter}}" />
-                                                    <TextBlock Style="{StaticResource serverEncryptionStatus}" />
+                                                    <TextBlock Style="{StaticResource peerEncryptionStatus}" />
                                                     <Button 
                                                         Style="{StaticResource popUpButtonStyle}"
                                                         Command="{Binding DataContext.DisconnectFromServerCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
