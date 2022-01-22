@@ -9,6 +9,7 @@ using System.Windows.Input;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using Microsoft.Toolkit.Mvvm.Input;
 using SystemTrayApp.WPF;
+using FileSharing.Models;
 
 namespace FileSharing.ViewModels
 {
@@ -18,6 +19,9 @@ namespace FileSharing.ViewModels
         private bool _showInTaskbar;
         private WindowState _windowState;
 
+        private readonly Client _client;
+        private readonly Server _server;
+
         public MainWindowViewModel()
         {
             LoadedCommand = new RelayCommand(Loaded);
@@ -25,8 +29,19 @@ namespace FileSharing.ViewModels
             NotifyCommand = new RelayCommand(() => Notify("Hello world!"));
             NotifyIconOpenCommand = new RelayCommand(() => { WindowState = WindowState.Normal; });
             NotifyIconExitCommand = new RelayCommand(() => { Application.Current.Shutdown(); });
+
+            _client = new Client();
+            _client.ServerUpdated += OnServerUpdated;
+            _client.ServerRemoved += OnServerRemoved;
+            _client.MessageReceived += OnClientMessageReceived;
+
+            _server = new Server(55000);
+            _server.ClientUpdated += OnClientUpdated;
+            _server.ClientRemoved += OnClientRemoved;
+            _server.MessageReceived += OnServerMessageReceived;
         }
 
+        #region System tray related stuff
         public ICommand LoadedCommand { get; }
         public ICommand ClosingCommand { get; }
         public ICommand NotifyCommand { get; }
@@ -78,5 +93,38 @@ namespace FileSharing.ViewModels
             e.Cancel = true;
             WindowState = WindowState.Minimized;
         }
+        #endregion
+
+        private void OnServerUpdated(object sender, CryptoPeerEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void OnServerRemoved(object sender, CryptoPeerEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void OnClientMessageReceived(object sender, NetEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void OnClientUpdated(object sender, CryptoPeerEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void OnClientRemoved(object sender, CryptoPeerEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void OnServerMessageReceived(object sender, NetEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+
     }
 }

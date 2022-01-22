@@ -6,7 +6,7 @@
 
     <converters:BytesToMegabytesConverter x:Key="bytesToMegabytesConverter" />
     <converters:ConnectionStatusConverter x:Key="connectionStatusConverter" />
-    <converters:CryptoChannelConverter x:Key="cryptoChannelConverter" />
+    <converters:CryptoPeerConverter x:Key="cryptoPeerConverter" />
     <converters:DateTimeConverter x:Key="dateTimeConverter" />
     <converters:DownloadSpeedConverter x:Key="downloadSpeedConverter" />
     <converters:IPEndPointConverter x:Key="ipEndPointConverter" />
