@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace FileSharing
+namespace FileSharing.Utils
 {
     public class SimpleWriter
     {

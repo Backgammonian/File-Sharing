@@ -8,7 +8,7 @@ using LiteNetLib.Layers;
 using LiteNetLib.Utils;
 using FileSharing.Models;
 
-namespace FileSharing
+namespace FileSharing.Networking
 {
     public class Client
     {

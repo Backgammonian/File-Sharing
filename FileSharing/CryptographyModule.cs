@@ -2,12 +2,11 @@
 using System.Text;
 using System.IO;
 using System.Security.Cryptography;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using Microsoft.Toolkit.Mvvm.ComponentModel;
 
 namespace FileSharing
 {
-    public class CryptographyModule : INotifyPropertyChanged
+    public class CryptographyModule : ObservableObject
     {
         private readonly ECDiffieHellmanCng _ecdh;
         private readonly byte[] _publicKey;
@@ -31,23 +30,10 @@ namespace FileSharing
             IsEnabled = false;
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        private void OnPropertyChanged([CallerMemberName] string prop = "")
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
-        }
-
         public bool IsEnabled
         {
-            get
-            {
-                return _isEnabled;
-            }
-            private set
-            {
-                _isEnabled = value;
-                OnPropertyChanged();
-            }
+            get => _isEnabled;
+            private set => SetProperty(ref _isEnabled, value);
         }
 
         public byte[] PublicKey => (byte[])_publicKey.Clone();

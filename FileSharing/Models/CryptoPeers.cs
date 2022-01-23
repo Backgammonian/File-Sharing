@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 
 namespace FileSharing.Models
 {
     public class CryptoPeers
     {
-        private readonly Dictionary<int, CryptoPeer> _cryptoPeers;
+        private readonly ConcurrentDictionary<int, CryptoPeer> _cryptoPeers;
 
         public CryptoPeers()
         {
-            _cryptoPeers = new Dictionary<int, CryptoPeer>();
+            _cryptoPeers = new ConcurrentDictionary<int, CryptoPeer>();
         }
 
         public event EventHandler<CryptoPeerEventArgs> PeerAdded;
@@ -23,8 +24,8 @@ namespace FileSharing.Models
 
         public CryptoPeer this[int peerId]
         {
-            get { return _cryptoPeers[peerId]; }
-            private set { _cryptoPeers[peerId] = value; }
+            get => _cryptoPeers[peerId];
+            private set => _cryptoPeers[peerId] = value;
         }
 
         public bool Has(int peerId)
@@ -44,11 +45,13 @@ namespace FileSharing.Models
                 var endPoint = ip + ":" + port;
                 var peer = _cryptoPeers.Values.Single(peer => peer.Peer.EndPoint.ToString() == endPoint);
                 peerId = peer.Id;
+
                 return true;
             }
             catch (Exception)
             {
                 peerId = -1;
+
                 return false;
             }
         }
@@ -57,7 +60,8 @@ namespace FileSharing.Models
         {
             if (!Has(cryptoChannel.Id))
             {
-                _cryptoPeers.Add(cryptoChannel.Id, cryptoChannel);
+                _cryptoPeers.TryAdd(cryptoChannel.Id, cryptoChannel);
+
                 PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoChannel.Id));
             }
         }
@@ -66,7 +70,8 @@ namespace FileSharing.Models
         {
             if (Has(peerId))
             {
-                _cryptoPeers.Remove(peerId, out _);
+                _cryptoPeers.TryRemove(peerId, out _);
+
                 PeerRemoved?.Invoke(this, new CryptoPeerEventArgs(peerId));
             }
         }

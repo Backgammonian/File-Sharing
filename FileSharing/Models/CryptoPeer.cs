@@ -3,14 +3,14 @@ using System.Net;
 using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Utils;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Toolkit.Mvvm.ComponentModel;
+using FileSharing.Utils;
 
 namespace FileSharing.Models
 {
-    public class CryptoPeer
+    public class CryptoPeer : ObservableObject
     {
         private NetPeer _peer;
         private CryptographyModule _cryptography;
@@ -36,12 +36,6 @@ namespace FileSharing.Models
             BytesUploaded = 0;
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        private void OnPropertyChanged([CallerMemberName] string prop = "")
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
-        }
-
         private void OnDurationTimerTick(object sender, EventArgs e)
         {
             ConnectionDuration = DateTime.Now - StartTime;
@@ -49,67 +43,32 @@ namespace FileSharing.Models
 
         public NetPeer Peer
         {
-            get
-            {
-                return _peer;
-            }
-            private set
-            {
-                _peer = value;
-                OnPropertyChanged();
-            }
+            get => _peer;
+            private set => SetProperty(ref _peer, value);
         }
 
         public bool IsSet
         {
-            get
-            {
-                return _isSet;
-            }
-            private set
-            {
-                _isSet = value;
-                OnPropertyChanged();
-            }
+            get => _isSet;
+            private set => SetProperty(ref _isSet, value);
         }
 
         public DateTime StartTime
         {
-            get
-            {
-                return _startTime;
-            }
-            private set
-            {
-                _startTime = value;
-                OnPropertyChanged();
-            }
+            get => _startTime;
+            private set => SetProperty(ref _startTime, value);
         }
 
         public TimeSpan ConnectionDuration
         {
-            get
-            {
-                return _connectionDuration;
-            }
-            private set
-            {
-                _connectionDuration = value;
-                OnPropertyChanged();
-            }
+            get => _connectionDuration;
+            private set => SetProperty(ref _connectionDuration, value);
         }
 
         public long BytesUploaded
         {
-            get
-            {
-                return _bytesUploaded;
-            }
-            private set
-            {
-                _bytesUploaded = value;
-                OnPropertyChanged();
-            }
+            get => _bytesUploaded;
+            private set => SetProperty(ref _bytesUploaded, value);
         }
 
         public bool IsEstablished => IsSet && _cryptography.IsEnabled;

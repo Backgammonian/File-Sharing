@@ -242,7 +242,7 @@
                                 <TabItem.Content>
                                     <ListBox
                                         ItemsSource="{Binding AvailableFiles}"
-                                        SelectedItem="{Binding AvailableFile}">
+                                        SelectedItem="{Binding SelectedAvailableFile}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel 
@@ -250,6 +250,9 @@
                                                     <TextBlock 
                                                         Style="{StaticResource titleStyle}" 
                                                         Text="{Binding Name}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding ServerAddress, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
@@ -296,6 +299,9 @@
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding ServerAddress, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
@@ -315,6 +321,15 @@
                                                         <TextBlock
                                                             Style="{StaticResource baseTextBlockStyle}"
                                                             Text="Cancel download">
+                                                        </TextBlock>
+                                                    </Button>
+                                                    <Button 
+                                                        Style="{StaticResource popUpButtonStyle}"
+                                                        Command="{Binding DataContext.OpenFileInFolderCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                        <TextBlock
+                                                            Style="{StaticResource baseTextBlockStyle}"
+                                                            Text="Open in folder">
                                                         </TextBlock>
                                                     </Button>
                                                 </StackPanel>
@@ -369,12 +384,7 @@
                         <WrapPanel
                             Grid.Row="1">
                             <Button
-                                Style="{StaticResource baseButtonStyle}">
-                                <TextBlock
-                                    Style="{StaticResource baseTextBlockStyle}"
-                                    Text="Open downloads folder"/>
-                            </Button>
-                            <Button
+                                Command="{Binding ConnectToServerCommand}"
                                 Style="{StaticResource baseButtonStyle}">
                                 <TextBlock
                                     Style="{StaticResource baseTextBlockStyle}"
