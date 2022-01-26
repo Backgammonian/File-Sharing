@@ -9,7 +9,7 @@ namespace FileSharing.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return SizeSuffix(System.Convert.ToInt64(value)) + "/s";
+            return SizeSuffix((long)value) + "/s";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -27,7 +27,7 @@ namespace FileSharing.Converters
             }
 
             int i = 0;
-            decimal dValue = (decimal)value;
+            decimal dValue = value;
             while (Math.Round(dValue, decimalPlaces) >= 1000)
             {
                 dValue /= 1024;

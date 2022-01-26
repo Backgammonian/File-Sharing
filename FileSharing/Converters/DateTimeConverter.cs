@@ -11,7 +11,7 @@ namespace FileSharing.Converters
         {
             var dateTime = (DateTime)value;
             return dateTime.Day + " " +
-                _abbreviationsOfMonths[dateTime.Month - 1] + " " +
+                _monthAbbreviations[dateTime.Month - 1] + " " +
                 dateTime.Year + " " +
                 dateTime.Hour + ":" +
                 Format(dateTime.Minute) + ":" +
@@ -23,16 +23,11 @@ namespace FileSharing.Converters
             return DependencyProperty.UnsetValue;
         }
 
-        private readonly string[] _abbreviationsOfMonths = new string[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+        private readonly string[] _monthAbbreviations = new string[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
         private string Format(int number)
         {
-            var s = "" + number;
-            if (s.Length == 1)
-            {
-                s = "0" + s[0];
-            }
-            return s;
+            return number.ToString().Length == 1 ? "0" + number : "" + number;
         }
     }
 }

@@ -11,18 +11,19 @@
         SizeToContent="WidthAndHeight">
     <DockPanel
         LastChildFill="True"
-            Margin="20">
+        Margin="20">
         <Label
-            DockPanel.Dock="Top"
             x:Name="lblQuestion"
+            DockPanel.Dock="Top"
             HorizontalContentAlignment="Center" 
             Content="Question:"/>
         <Label
             DockPanel.Dock="Top"
             Height="20"/>
         <TextBox
+            x:Name="txtAnswer" 
             DockPanel.Dock="Top"
-            x:Name="txtAnswer" Text="Answer"/>
+            Text="Answer"/>
         <Label
             DockPanel.Dock="Top"
             Height="20"/>
@@ -30,16 +31,16 @@
             Width="130"
             HorizontalAlignment="Right">
             <Button
-            IsDefault="True"
-            x:Name="btnDialogOk"
-            Click="btnDialogOk_Click"
-            MinWidth="60" 
-            Content="_Ok"/>
+                x:Name="btnDialogOk"
+                Click="btnDialogOk_Click"
+                IsDefault="True"
+                MinWidth="60" 
+                Content="_Ok"/>
             <Button
-            IsCancel="True"
-            MinWidth="60"
-            Margin="10,0,0,0" 
-            Content="_Cancel"/>
+                IsCancel="True"
+                MinWidth="60"
+                Margin="10, 0, 0, 0" 
+                Content="_Cancel"/>
         </WrapPanel>
     </DockPanel>
 </Window>

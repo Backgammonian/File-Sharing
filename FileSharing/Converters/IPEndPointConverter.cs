@@ -3,6 +3,7 @@ using System.Windows;
 using System.Globalization;
 using System.Windows.Data;
 using System.Net;
+using LiteNetLib;
 
 namespace FileSharing.Converters
 {
@@ -10,7 +11,8 @@ namespace FileSharing.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return (value as IPEndPoint).ToString();
+            var netPeer = value as NetPeer;
+            return netPeer == null ? new IPEndPoint(0, 0).ToString() : netPeer.EndPoint;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

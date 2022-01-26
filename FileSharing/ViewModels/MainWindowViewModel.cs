@@ -24,9 +24,7 @@ namespace FileSharing.ViewModels
 
         private readonly Client _client;
         private readonly FilesFromServers _availableFiles;
-        private FileInfo _selectedAvailableFile;
         private readonly Downloads _downloads;
-        private Download _selectedDownload;
 
         private readonly Server _server;
 
@@ -38,22 +36,22 @@ namespace FileSharing.ViewModels
             NotifyIconOpenCommand = new RelayCommand(() => { WindowState = WindowState.Normal; });
             NotifyIconExitCommand = new RelayCommand(() => { Application.Current.Shutdown(); });
 
-            ConnectToServerCommand = new RelayCommand(ConnectToServer);
-
             _client = new Client();
-            _client.ServerUpdated += OnServerUpdated;
+            _client.ServerAdded += OnServerAdded;
             _client.ServerRemoved += OnServerRemoved;
             _client.MessageReceived += OnClientMessageReceived;
             _availableFiles = new FilesFromServers();
-            _availableFiles.FilesUpdated += AvailableFilesListUpdated;
+            _availableFiles.FilesUpdated += OnAvailableFilesListUpdated;
+            _downloads = new Downloads();
+            _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
+            ConnectToServerCommand = new RelayCommand(ConnectToServer);
             DownloadFileCommand = new RelayCommand<FileInfo>(DownloadFile);
             CancelDownloadCommand = new RelayCommand<Download>(CancelDownload);
             OpenFileInFolderCommand = new RelayCommand<Download>(OpenFileInFolder);
-            _downloads = new Downloads();
-            _downloads.DownloadsListUpdated += DownloadsListUpdated;
+            DisconnectFromServerCommand = new RelayCommand<CryptoPeer>(DisconnectFromServer);
 
             _server = new Server(55000);
-            _server.ClientUpdated += OnClientUpdated;
+            _server.ClientAdded += OnClientAdded;
             _server.ClientRemoved += OnClientRemoved;
             _server.MessageReceived += OnServerMessageReceived;
         }
@@ -119,22 +117,15 @@ namespace FileSharing.ViewModels
         public ICommand DownloadFileCommand { get; }
         public ICommand CancelDownloadCommand { get; }
         public ICommand OpenFileInFolderCommand { get; }
+        public ICommand DisconnectFromServerCommand { get; }
         public ObservableCollection<FileInfo> AvailableFiles => _availableFiles.AvailableFiles;
-        public ObservableCollection<Download> Downloads => _downloads.DownloadsList;
+        public ObservableCollection<Download> Downloads => new ObservableCollection<Download>(_downloads.DownloadsList);
+        public ObservableCollection<CryptoPeer> Servers => new ObservableCollection<CryptoPeer>(_client.Servers);
+        public FileInfo SelectedAvailableFile { get; set; }
+        public Download SelectedDownload { get; set; }
+        public CryptoPeer SelectedServer { get; set; }
 
-        public FileInfo SelectedAvailableFile
-        {
-            get => _selectedAvailableFile;
-            set => SetProperty(ref _selectedAvailableFile, value);
-        }
-
-        public Download SelectedDownload
-        {
-            get => _selectedDownload;
-            set => SetProperty(ref _selectedDownload, value);
-        }
-
-        private void OnServerUpdated(object? sender, CryptoPeerEventArgs e)
+        private void OnServerAdded(object? sender, CryptoPeerEventArgs e)
         {
             throw new NotImplementedException();
         }
@@ -149,7 +140,7 @@ namespace FileSharing.ViewModels
             throw new NotImplementedException();
         }
 
-        private void OnClientUpdated(object? sender, CryptoPeerEventArgs e)
+        private void OnClientAdded(object? sender, CryptoPeerEventArgs e)
         {
             throw new NotImplementedException();
         }
@@ -164,12 +155,12 @@ namespace FileSharing.ViewModels
             throw new NotImplementedException();
         }
 
-        private void AvailableFilesListUpdated(object? sender, EventArgs e)
+        private void OnAvailableFilesListUpdated(object? sender, EventArgs e)
         {
             throw new NotImplementedException();
         }
 
-        private void DownloadsListUpdated(object? sender, EventArgs e)
+        private void OnDownloadsListUpdated(object? sender, EventArgs e)
         {
             throw new NotImplementedException();
         }
@@ -256,6 +247,16 @@ namespace FileSharing.ViewModels
         private void OpenFileInFolder(Download? download)
         {
             if (download == null)
+            {
+                return;
+            }
+
+            //todo
+        }
+
+        private void DisconnectFromServer(CryptoPeer? server)
+        {
+            if (server == null)
             {
                 return;
             }

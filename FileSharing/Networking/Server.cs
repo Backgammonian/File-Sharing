@@ -23,31 +23,31 @@ namespace FileSharing.Networking
         public Server(int port)
         {
             _listener = new EventBasedNetListener();
-            _xor = new XorEncryptLayer("HaveYouHeardOfTheHighElves");
+            _xor = new XorEncryptLayer("VerySecretSymmetricXorPassword");
             _server = new NetManager(_listener, _xor)
             {
                 ChannelsCount = 8
             };
             _port = port;
             _clients = new CryptoPeers();
-            _clients.PeerAdded += OnClientUpdated;
+            _clients.PeerAdded += OnClientAdded;
             _clients.PeerRemoved += OnClientRemoved;
         }
 
-        public event EventHandler<NetEventArgs> MessageReceived;
-        public event EventHandler<CryptoPeerEventArgs> ClientUpdated;
-        public event EventHandler<CryptoPeerEventArgs> ClientRemoved;
+        public event EventHandler<NetEventArgs>? MessageReceived;
+        public event EventHandler<CryptoPeerEventArgs>? ClientAdded;
+        public event EventHandler<CryptoPeerEventArgs>? ClientRemoved;
 
         public int LocalPort => _server.LocalPort;
         public byte ChannelsCount => _server.ChannelsCount;
         public IEnumerable<CryptoPeer> Clients => _clients.List;
 
-        private void OnClientUpdated(object sender, CryptoPeerEventArgs e)
+        private void OnClientAdded(object? sender, CryptoPeerEventArgs e)
         {
-            ClientUpdated?.Invoke(this, e);
+            ClientAdded?.Invoke(this, e);
         }
 
-        private void OnClientRemoved(object sender, CryptoPeerEventArgs e)
+        private void OnClientRemoved(object? sender, CryptoPeerEventArgs e)
         {
             ClientRemoved?.Invoke(this, e);
         }

@@ -22,30 +22,30 @@ namespace FileSharing.Networking
         public Client()
         {
             _listener = new EventBasedNetListener();
-            _xor = new XorEncryptLayer("HaveYouHeardOfTheHighElves");
+            _xor = new XorEncryptLayer("VerySecretSymmetricXorPassword");
             _client = new NetManager(_listener, _xor)
             {
                 ChannelsCount = 8
             };
             _servers = new CryptoPeers();
-            _servers.PeerAdded += OnServerUpdated;
+            _servers.PeerAdded += OnServerAdded;
             _servers.PeerRemoved += OnServerRemoved;
         }
 
-        public event EventHandler<NetEventArgs> MessageReceived;
-        public event EventHandler<CryptoPeerEventArgs> ServerUpdated;
-        public event EventHandler<CryptoPeerEventArgs> ServerRemoved;
+        public event EventHandler<NetEventArgs>? MessageReceived;
+        public event EventHandler<CryptoPeerEventArgs>? ServerAdded;
+        public event EventHandler<CryptoPeerEventArgs>? ServerRemoved;
 
         public int LocalPort => _client.LocalPort;
         public byte ChannelsCount => _client.ChannelsCount;
         public IEnumerable<CryptoPeer> Servers => _servers.List;
 
-        private void OnServerUpdated(object sender, CryptoPeerEventArgs e)
+        private void OnServerAdded(object? sender, CryptoPeerEventArgs e)
         {
-            ServerUpdated?.Invoke(this, e);
+            ServerAdded?.Invoke(this, e);
         }
 
-        private void OnServerRemoved(object sender, CryptoPeerEventArgs e)
+        private void OnServerRemoved(object? sender, CryptoPeerEventArgs e)
         {
             ServerRemoved?.Invoke(this, e);
         }
@@ -67,39 +67,28 @@ namespace FileSharing.Networking
 
         public void DisconnectFromServer(CryptoPeer server)
         {
-            server.Disconnect();
-            _servers.Remove(server.Id);
-        }
-
-        public void DisconnectFromServer(string ip, int port)
-        {
-            if (_servers.Has(ip, port, out int Id))
+            if (server.Peer == null)
             {
-                _servers[Id].Disconnect();
-                _servers.Remove(Id);
+                return;
             }
+
+            server.Disconnect();
+            _servers.Remove(server.Peer.Id);
         }
 
         public void ConnectToServer(string ip, int port)
         {
-            DisconnectFromServer(ip, port); //Maybe shouldn't disconnect?
-
             var netPeer = _client.Connect(ip, port, "ToFileServer");
-            var server = new CryptoPeer();
-            server.ExpectConnectionFromServer(ip, port, netPeer.Id);
-            _servers.Add(server);
-        }
+            if (netPeer.ConnectionState == ConnectionState.Connected)
+            {
+                Debug.WriteLine("Already connected to peer " + ip + ":" + port);
 
-        public void SendToServer(CryptoPeer server, NetDataWriter message)
-        {
-            if (server.IsEstablished)
-            {
-                server.SendEncrypted(message);
+                return;
             }
-            else
-            {
-                Debug.WriteLine("(Client_SendToServer) Can't send encrypted data to server " + server.EndPoint);
-            }
+
+            var server = new CryptoPeer();
+            server.ExpectConnectionFromServer(netPeer);
+            _servers.Add(server);
         }
 
         public void StartListening()
@@ -114,10 +103,8 @@ namespace FileSharing.Networking
                 {
                     Debug.WriteLine("(Client_PeerConnectedEvent) Receiving expected connection from server: {0}", peer.EndPoint);
 
-                    _servers[peer.Id].ChangePeer(peer);
+                    _servers[peer.Id].SetPeer(peer);
                     _servers[peer.Id].SendPublicKeys();
-
-                    ServerUpdated?.Invoke(this, new CryptoPeerEventArgs(peer.Id));
                 }
                 else
                 {
@@ -147,7 +134,7 @@ namespace FileSharing.Networking
                 }
 
                 if (_servers.Has(fromPeer.Id) &&
-                    _servers[fromPeer.Id].IsEstablished)
+                    _servers[fromPeer.Id].IsSecurityEnabled)
                 {
                     var data = _servers[fromPeer.Id].DecryptReceivedData(dataReader);
 
@@ -156,10 +143,10 @@ namespace FileSharing.Networking
                 else
                 if (!_servers.Has(fromPeer.Id))
                 {
-                    Debug.WriteLine("(Client_NetworkReceiveEvent) No encrypted connection with any server");
+                    Debug.WriteLine("(Client_NetworkReceiveEvent) No encrypted connection with this server: " + fromPeer.EndPoint);
                 }
                 else
-                if (!_servers[fromPeer.Id].IsEstablished)
+                if (!_servers[fromPeer.Id].IsSecurityEnabled)
                 {
                     Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Trying to get keys from server " + fromPeer.EndPoint);
 
@@ -171,9 +158,7 @@ namespace FileSharing.Networking
                         dataReader.GetBytes(signaturePublicKey, signaturePublicKey.Length);
                         _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
 
-                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + _servers[fromPeer.Id].EndPoint);
-
-                        ServerUpdated?.Invoke(this, new CryptoPeerEventArgs(fromPeer.Id));
+                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + _servers[fromPeer.Id].Peer.EndPoint);
                     }
                     catch (Exception e)
                     {

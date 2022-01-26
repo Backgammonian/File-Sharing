@@ -7,35 +7,35 @@ namespace FileSharing.Models
     public class FilesFromServers
     {
         //server ID (from NetPeer object), list of files
-        private readonly ConcurrentDictionary<int, FilesFromServer> _filesDictionary;
+        private readonly ConcurrentDictionary<int, FilesFromServer> _filesFromServers;
 
         public FilesFromServers()
         {
-            _filesDictionary = new ConcurrentDictionary<int, FilesFromServer>();
+            _filesFromServers = new ConcurrentDictionary<int, FilesFromServer>();
             AvailableFiles = new ObservableCollection<FileInfo>();
         }
 
-        public event EventHandler<EventArgs> FilesUpdated;
+        public event EventHandler<EventArgs>? FilesUpdated;
 
         public ObservableCollection<FileInfo> AvailableFiles { get; }
 
         public FilesFromServer this[int serverID]
         {
-            get => _filesDictionary[serverID];
-            private set => _filesDictionary[serverID] = value;
+            get => _filesFromServers[serverID];
+            private set => _filesFromServers[serverID] = value;
         }
 
         public bool HasServer(int serverID)
         {
-            return _filesDictionary.ContainsKey(serverID);
+            return _filesFromServers.ContainsKey(serverID);
         }
 
         public void AddServer(int serverID)
         {
             if (!HasServer(serverID))
             {
-                _filesDictionary.TryAdd(serverID, new FilesFromServer());
-                _filesDictionary[serverID].ListUpdated += OnFileListUpdated;
+                _filesFromServers.TryAdd(serverID, new FilesFromServer());
+                _filesFromServers[serverID].ListUpdated += OnFileListUpdated;
 
                 FilesUpdated?.Invoke(this, EventArgs.Empty);
             }
@@ -45,17 +45,17 @@ namespace FileSharing.Models
         {
             if (HasServer(serverID))
             {
-                _filesDictionary[serverID].ListUpdated -= OnFileListUpdated;
-                _filesDictionary.TryRemove(serverID, out _);
+                _filesFromServers[serverID].ListUpdated -= OnFileListUpdated;
+                _filesFromServers.TryRemove(serverID, out _);
 
                 FilesUpdated?.Invoke(this, EventArgs.Empty);
             }
         }
 
-        private void OnFileListUpdated(object sender, EventArgs e)
+        private void OnFileListUpdated(object? sender, EventArgs e)
         {
             AvailableFiles.Clear();
-            foreach (var serverFilesList in _filesDictionary.Values)
+            foreach (var serverFilesList in _filesFromServers.Values)
             {
                 var files = serverFilesList.Files;
                 foreach (var file in files)

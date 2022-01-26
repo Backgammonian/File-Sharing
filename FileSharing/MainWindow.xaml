@@ -252,7 +252,7 @@
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding ServerAddress, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
+                                                        Text="{Binding Server, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
@@ -299,7 +299,7 @@
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding ServerAddress, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
+                                                        Text="{Binding Server, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
@@ -360,11 +360,15 @@
                                                     Style="{StaticResource stackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource titleStyle}" 
-                                                        Text="{Binding ServerAddress, Converter={StaticResource ipEndPointConverter}}" />
+                                                        Text="{Binding Peer, Converter={StaticResource ipEndPointConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding ConnectionState, Converter={StaticResource connectionStatusConverter}}" />
-                                                    <TextBlock Style="{StaticResource peerEncryptionStatus}" />
+                                                        Text="{Binding Peer, Converter={StaticResource connectionStatusConverter}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource peerEncryptionStatus}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding BytesDownloaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Bytes downloaded: {0}}" />
                                                     <Button 
                                                         Style="{StaticResource popUpButtonStyle}"
                                                         Command="{Binding DataContext.DisconnectFromServerCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"

@@ -10,7 +10,8 @@ namespace FileSharing.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return ((ConnectionState)value).ToString();
+            var netPeer = value as NetPeer;
+            return netPeer == null ? ConnectionState.Disconnected : netPeer.ConnectionState;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

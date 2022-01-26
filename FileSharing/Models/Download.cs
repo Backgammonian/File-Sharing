@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Net;
 using System.IO;
 using System.Windows.Threading;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
+using LiteNetLib;
 using FileSharing.Utils;
 
 namespace FileSharing.Models
@@ -19,22 +19,20 @@ namespace FileSharing.Models
         private string _path;
         private long _size;
         private string _hash;
-        private int _serverID;
-        private IPEndPoint _serverAddress;
+        private NetPeer _server;
         private bool _isDownloaded;
         private bool _isCancelled;
         private long _bytesDownloaded;
         private double _downloadSpeed;
 
-        public Download(string name, long size, string hash, int serverID, IPEndPoint serverAddress, string path)
+        public Download(string name, long size, string hash, NetPeer server, string path)
         {
             ID = RandomGenerator.GetRandomString(20);
             Name = name;
             Path = path;
             Size = size;
             Hash = hash;
-            ServerID = serverID;
-            ServerAddress = serverAddress;
+            Server = server;
             IsDownloaded = false;
             IsCancelled = false;
             BytesDownloaded = 0;
@@ -50,8 +48,10 @@ namespace FileSharing.Models
             Path = path;
             Size = file.Size;
             Hash = file.Hash;
-            ServerID = file.ServerID;
-            ServerAddress = file.ServerAddress;
+            if (file.Server != null)
+            {
+                Server = file.Server;
+            }
             IsDownloaded = false;
             IsCancelled = false;
             BytesDownloaded = 0;
@@ -106,16 +106,10 @@ namespace FileSharing.Models
             private set => SetProperty(ref _hash, value);
         }
 
-        public int ServerID
+        public NetPeer Server
         {
-            get => _serverID;
-            private set => SetProperty(ref _serverID, value);
-        }
-
-        public IPEndPoint ServerAddress
-        {
-            get => _serverAddress;
-            private set => SetProperty(ref _serverAddress, value);
+            get => _server;
+            private set => SetProperty(ref _server, value);
         }
 
         public bool IsDownloaded
@@ -161,30 +155,44 @@ namespace FileSharing.Models
             {
                 Debug.WriteLine(e);
 
+                _speedCounter.Stop();
+
                 return false;
             }
         }
 
         public void ShutdownFile()
         {
-            DownloadSpeed = 0;
-            _speedCounter.Stop();
-            _stream.Close();
-            _stream.Dispose();
+            try
+            {
+                DownloadSpeed = 0;
+                _speedCounter.Stop();
+                _stream.Close();
+                _stream.Dispose();
+            }
+            catch (Exception)
+            {
+            }
         }
 
         public void Write(uint numOfSegment, byte[] segment)
         {
-            _stream.Seek(numOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
-            _stream.Write(segment, 0, segment.Length);
-            AddReceivedBytes(segment.Length);
+            try
+            {
+                _stream.Seek(numOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
+                _stream.Write(segment, 0, segment.Length);
+                AddReceivedBytes(segment.Length);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         private void AddReceivedBytes(int amountOfBytes)
         {
             if (IsCancelled || IsDownloaded)
             {
-                Debug.WriteLine("(DownloadFile_AddReceivedBytes) File " + Name + " is already downloaded or cancelled!");
+                Debug.WriteLine("(DownloadFile_AddReceivedBytes) File " + Name + " is already downloaded/cancelled!");
                 return;
             }
 
@@ -202,7 +210,7 @@ namespace FileSharing.Models
         {
             if (IsCancelled || IsDownloaded)
             {
-                Debug.WriteLine("(DownloadFile_Cancel) File " + Name + " is already downloaded or cancelled!");
+                Debug.WriteLine("(DownloadFile_Cancel) File " + Name + " is already downloaded/cancelled!");
                 return;
             }
 

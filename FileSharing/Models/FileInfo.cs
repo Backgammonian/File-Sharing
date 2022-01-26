@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using LiteNetLib;
 
 namespace FileSharing.Models
 {
@@ -9,23 +10,19 @@ namespace FileSharing.Models
             Name = "";
             Size = 0;
             Hash = "";
-            ServerID = -1;
-            ServerAddress = new IPEndPoint(0, 0);
         }
 
-        public FileInfo(string name, long size, string hash, int serverID, IPEndPoint serverAddress)
+        public FileInfo(string name, long size, string hash, NetPeer server)
         {
             Name = name;
             Size = size;
             Hash = hash;
-            ServerID = serverID;
-            ServerAddress = serverAddress;
+            Server = server;
         }
 
         public string Name { get; set; }
         public long Size { get; set; }
         public string Hash { get; set; }
-        public int ServerID { get; set; }
-        public IPEndPoint ServerAddress { get; set; }
+        public NetPeer? Server { get; set; }
     }
 }

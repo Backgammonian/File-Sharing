@@ -6,7 +6,6 @@
 
     <converters:BytesToMegabytesConverter x:Key="bytesToMegabytesConverter" />
     <converters:ConnectionStatusConverter x:Key="connectionStatusConverter" />
-    <converters:CryptoPeerConverter x:Key="cryptoPeerConverter" />
     <converters:DateTimeConverter x:Key="dateTimeConverter" />
     <converters:DownloadSpeedConverter x:Key="downloadSpeedConverter" />
     <converters:IPEndPointConverter x:Key="ipEndPointConverter" />
@@ -61,7 +60,7 @@
     </Style>
 
     <Style x:Key="peerEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
-        <Setter Property="Text" Value="Encrypted?"/>
+        <Setter Property="Text" Value="No encryption?"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsEstablished}" Value="True">
                 <Setter Property="Text" Value="Encrypted"/>

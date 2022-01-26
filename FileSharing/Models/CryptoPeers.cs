@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Collections;
 
 namespace FileSharing.Models
 {
-    public class CryptoPeers
+    public class CryptoPeers : IEnumerable<CryptoPeer>
     {
         private readonly ConcurrentDictionary<int, CryptoPeer> _cryptoPeers;
 
@@ -14,13 +15,12 @@ namespace FileSharing.Models
             _cryptoPeers = new ConcurrentDictionary<int, CryptoPeer>();
         }
 
-        public event EventHandler<CryptoPeerEventArgs> PeerAdded;
-        public event EventHandler<CryptoPeerEventArgs> PeerRemoved;
+        public event EventHandler<CryptoPeerEventArgs>? PeerAdded;
+        public event EventHandler<CryptoPeerEventArgs>? PeerRemoved;
 
         public IEnumerable<CryptoPeer> List => _cryptoPeers.Values;
-
         public IEnumerable<CryptoPeer> EstablishedList =>
-            _cryptoPeers.Values.Where(cryptoChannel => cryptoChannel.IsEstablished);
+            _cryptoPeers.Values.Where(cryptoPeer => cryptoPeer.IsSecurityEnabled);
 
         public CryptoPeer this[int peerId]
         {
@@ -35,45 +35,47 @@ namespace FileSharing.Models
 
         public bool Has(CryptoPeer cryptoPeer)
         {
-            return _cryptoPeers.ContainsKey(cryptoPeer.Id);
-        }
-
-        public bool Has(string ip, int port, out int peerId)
-        {
-            try
+            if (cryptoPeer.Peer == null)
             {
-                var endPoint = ip + ":" + port;
-                var peer = _cryptoPeers.Values.Single(peer => peer.Peer.EndPoint.ToString() == endPoint);
-                peerId = peer.Id;
-
-                return true;
-            }
-            catch (Exception)
-            {
-                peerId = -1;
-
                 return false;
             }
+
+            return _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
         }
 
-        public void Add(CryptoPeer cryptoChannel)
+        public void Add(CryptoPeer cryptoPeer)
         {
-            if (!Has(cryptoChannel.Id))
+            if (cryptoPeer.Peer == null)
             {
-                _cryptoPeers.TryAdd(cryptoChannel.Id, cryptoChannel);
+                return;
+            }
 
-                PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoChannel.Id));
+            if (!Has(cryptoPeer.Peer.Id))
+            {
+                _cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer);
+
+                PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoPeer.Peer.Id));
             }
         }
 
-        public void Remove(int peerId)
+        public void Remove(int peerID)
         {
-            if (Has(peerId))
+            if (Has(peerID))
             {
-                _cryptoPeers.TryRemove(peerId, out _);
+                _cryptoPeers.TryRemove(peerID, out _);
 
-                PeerRemoved?.Invoke(this, new CryptoPeerEventArgs(peerId));
+                PeerRemoved?.Invoke(this, new CryptoPeerEventArgs(peerID));
             }
+        }
+
+        public IEnumerator<CryptoPeer> GetEnumerator()
+        {
+            return _cryptoPeers.Values.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)_cryptoPeers.Values).GetEnumerator();
         }
     }
 }

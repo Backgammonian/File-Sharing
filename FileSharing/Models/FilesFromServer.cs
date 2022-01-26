@@ -13,7 +13,7 @@ namespace FileSharing.Models
             _files = new ConcurrentDictionary<int, FileInfo>();
         }
 
-        public event EventHandler<EventArgs> ListUpdated;
+        public event EventHandler<EventArgs>? ListUpdated;
 
         public IEnumerable<FileInfo> Files => _files.Values;
 

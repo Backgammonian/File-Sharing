@@ -2,15 +2,11 @@
 using System.IO;
 using System.IO.Compression;
 
-namespace FileSharing
+namespace FileSharing.Utils
 {
-    public class CompressModule
+    public static class Compression
     {
-        public CompressModule()
-        {
-        }
-
-        public byte[] CompressByteArray(byte[] data)
+        public static byte[] CompressByteArray(byte[] data)
         {
             if (data != null && data.Length > 0)
             {
@@ -25,7 +21,7 @@ namespace FileSharing
             return Array.Empty<byte>();
         }
 
-        public byte[] DecompressByteArray(byte[] data)
+        public static byte[] DecompressByteArray(byte[] data)
         {
             if (data != null && data.Length > 0)
             {

@@ -1,19 +1,18 @@
 ﻿using System;
-using System.Text;
 using System.IO;
 using System.Security.Cryptography;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 
-namespace FileSharing
+namespace FileSharing.Modules
 {
     public class CryptographyModule : ObservableObject
     {
         private readonly ECDiffieHellmanCng _ecdh;
         private readonly byte[] _publicKey;
-        private byte[] _privateKey;
         private readonly CngKey _signature;
         private readonly byte[] _signaturePublicKey;
-        private byte[] _othersSignaturePublicKey;
+        private byte[] _privateKey;
+        private byte[] _recipientsSignaturePublicKey;
         private bool _isEnabled;
         
         public CryptographyModule()
@@ -22,10 +21,10 @@ namespace FileSharing
             _ecdh.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
             _ecdh.HashAlgorithm = CngAlgorithm.Sha256;
             _publicKey = _ecdh.PublicKey.ToByteArray();
-            _privateKey = Array.Empty<byte>();
             _signature = CngKey.Create(CngAlgorithm.ECDsaP256);
             _signaturePublicKey = _signature.Export(CngKeyBlobFormat.GenericPublicBlob);
-            _othersSignaturePublicKey = Array.Empty<byte>();
+            _privateKey = Array.Empty<byte>();
+            _recipientsSignaturePublicKey = Array.Empty<byte>();
 
             IsEnabled = false;
         }
@@ -36,13 +35,13 @@ namespace FileSharing
             private set => SetProperty(ref _isEnabled, value);
         }
 
-        public byte[] PublicKey => (byte[])_publicKey.Clone();
-        public byte[] SignaturePublicKey => (byte[])_signaturePublicKey.Clone();
+        public ReadOnlySpan<byte> PublicKey => new ReadOnlySpan<byte>(_publicKey);
+        public ReadOnlySpan<byte> SignaturePublicKey => new ReadOnlySpan<byte>(_signaturePublicKey);
 
         public void SetKeys(byte[] publicKey, byte[] signaturePublicKey)
         {
             _privateKey = _ecdh.DeriveKeyMaterial(CngKey.Import(publicKey, CngKeyBlobFormat.EccPublicBlob));
-            _othersSignaturePublicKey = (byte[])signaturePublicKey.Clone();
+            _recipientsSignaturePublicKey = (byte[])signaturePublicKey.Clone();
 
             IsEnabled = true;
         }
@@ -58,10 +57,10 @@ namespace FileSharing
 
         public bool VerifySignature(byte[] data, byte[] signature)
         {
-            using var key = CngKey.Import(_othersSignaturePublicKey, CngKeyBlobFormat.GenericPublicBlob);
-            var signingAlg = new ECDsaCng(key);
-            var result = signingAlg.VerifyData(data, signature);
-            signingAlg.Clear();
+            using var key = CngKey.Import(_recipientsSignaturePublicKey, CngKeyBlobFormat.GenericPublicBlob);
+            var signingAlgorithm = new ECDsaCng(key);
+            var result = signingAlgorithm.VerifyData(data, signature);
+            signingAlgorithm.Clear();
 
             return result;
         }
@@ -71,12 +70,12 @@ namespace FileSharing
             using Aes aes = new AesCryptoServiceProvider();
             aes.Key = _privateKey;
             iv = aes.IV;
-            using var ciphertext = new MemoryStream();
-            using var cs = new CryptoStream(ciphertext, aes.CreateEncryptor(), CryptoStreamMode.Write);
-            cs.Write(secretMessage, 0, secretMessage.Length);
-            cs.Close();
+            using var cipherText = new MemoryStream();
+            using var cryptoStream = new CryptoStream(cipherText, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            cryptoStream.Write(secretMessage, 0, secretMessage.Length);
+            cryptoStream.Close();
 
-            encryptedMessage = ciphertext.ToArray();
+            encryptedMessage = cipherText.ToArray();
         }
 
         public byte[] Decrypt(byte[] encryptedMessage, byte[] iv)
@@ -84,26 +83,17 @@ namespace FileSharing
             using Aes aes = new AesCryptoServiceProvider();
             aes.Key = _privateKey;
             aes.IV = iv;
-            using var plaintext = new MemoryStream();
-            using var cs = new CryptoStream(plaintext, aes.CreateDecryptor(), CryptoStreamMode.Write);
-            cs.Write(encryptedMessage, 0, encryptedMessage.Length);
-            cs.Close();
+            using var plainText = new MemoryStream();
+            using var cryptoStream = new CryptoStream(plainText, aes.CreateDecryptor(), CryptoStreamMode.Write);
+            cryptoStream.Write(encryptedMessage, 0, encryptedMessage.Length);
+            cryptoStream.Close();
 
-            return plaintext.ToArray();
+            return plainText.ToArray();
         }
 
         public void Disable()
         {
             IsEnabled = false;
-        }
-
-        public static string ComputeSHA256Hash(string data)
-        {
-            using var sha = SHA256.Create();
-            var bytes = Encoding.UTF8.GetBytes(data);
-            var hash = sha.ComputeHash(bytes);
-
-            return BitConverter.ToString(hash).ToLower().Replace("-", "");
         }
     }
 }

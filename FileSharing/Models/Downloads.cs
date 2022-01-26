@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
 
 namespace FileSharing.Models
 {
-    public class Downloads
+    public class Downloads : IEnumerable<Download>
     {
         private readonly ConcurrentDictionary<string, Download> _downloads;
 
@@ -14,7 +15,7 @@ namespace FileSharing.Models
             _downloads = new ConcurrentDictionary<string, Download>();
         }
 
-        public event EventHandler<EventArgs> DownloadsListUpdated;
+        public event EventHandler<EventArgs>? DownloadsListUpdated;
 
         public Download this[string downloadID]
         {
@@ -22,7 +23,7 @@ namespace FileSharing.Models
             private set => _downloads[downloadID] = value;
         }
 
-        public ObservableCollection<Download> DownloadsList => new ObservableCollection<Download>(_downloads.Values);
+        public IEnumerable<Download> DownloadsList => _downloads.Values;
 
         public bool HasDownload(string downloadID)
         {
@@ -31,7 +32,7 @@ namespace FileSharing.Models
 
         public void AddDownload(Download download)
         {
-            if (!HasDownload(download.Hash))
+            if (!HasDownload(download.ID))
             {
                 if (!download.TryOpenFile())
                 {
@@ -57,19 +58,17 @@ namespace FileSharing.Models
 
         public bool HasFileWithSamePath(string downloadFilePath, out string downloadID)
         {
-            try
+            foreach (var download in _downloads.Values)
             {
-                var download = _downloads.Values.Single(download => download.Path == downloadFilePath);
-                downloadID = download.ID;
-
-                return true;
+                if (download.Path == downloadFilePath)
+                {
+                    downloadID = download.ID;
+                    return true;
+                }
             }
-            catch (Exception)
-            {
-                downloadID = "";
 
-                return false;
-            }
+            downloadID = "";
+            return false;
         }
 
         public void ShutdownDownload(string downloadID)
@@ -90,11 +89,21 @@ namespace FileSharing.Models
 
         public void CancelAllDownloadsFromServer(int serverID)
         {
-            var downloadsFromServer = _downloads.Values.Where(download => download.ServerID == serverID);
+            var downloadsFromServer = _downloads.Values.Where(download => download.Server.Id == serverID);
             foreach (var download in downloadsFromServer)
             {
                 download.Cancel();
             }
+        }
+
+        public IEnumerator<Download> GetEnumerator()
+        {
+            return _downloads.Values.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)_downloads.Values).GetEnumerator();
         }
     }
 }
