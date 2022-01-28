@@ -33,6 +33,8 @@ namespace FileSharing.Models
             _cryptography = new CryptographyModule();
         }
 
+        public event EventHandler<CryptoPeerEventArgs>? PeerDisconnected;
+
         public DateTime StartTime
         {
             get => _startTime;
@@ -178,9 +180,9 @@ namespace FileSharing.Models
             }
         }
 
-        public bool SendEncrypted(NetDataWriter message)
+        public bool SendEncrypted(SimpleWriter message)
         {
-            return SendEncrypted(message.Data);
+            return SendEncrypted(message.Get());
         }
 
         public NetDataReader DecryptReceivedData(NetPacketReader message)
@@ -237,8 +239,16 @@ namespace FileSharing.Models
 
         public void Disconnect()
         {
-            Peer?.Disconnect();
+            if (Peer == null)
+            {
+                return;
+            }
+
+            var id = Peer.Id;
+            Peer.Disconnect();
             _durationTimer.Stop();
+
+            PeerDisconnected?.Invoke(this, new CryptoPeerEventArgs(id));
         }
     }
 }

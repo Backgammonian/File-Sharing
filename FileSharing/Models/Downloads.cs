@@ -39,20 +39,32 @@ namespace FileSharing.Models
                     return;
                 }
 
-                _downloads.TryAdd(download.ID, download);
+                if (_downloads.TryAdd(download.ID, download))
+                {
+                    _downloads[download.ID].FileRemoved += OnFileRemoved;
 
-                DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
+                    DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
+                }
             }
+        }
+
+        private void OnFileRemoved(object? sender, EventArgs e)
+        {
+            DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void RemoveDownload(string downloadID)
         {
             if (HasDownload(downloadID))
             {
-                _downloads[downloadID].ShutdownFile();
-                _downloads.TryRemove(downloadID, out _);
+                if (_downloads.TryRemove(downloadID, out Download? removedDownload) &&
+                    removedDownload != null)
+                {
+                    removedDownload.ShutdownFile();
+                    removedDownload.FileRemoved -= OnFileRemoved;
 
-                DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
+                    DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
+                }
             }
         }
 

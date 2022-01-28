@@ -35,12 +35,7 @@ namespace FileSharing.Models
 
         public bool Has(CryptoPeer cryptoPeer)
         {
-            if (cryptoPeer.Peer == null)
-            {
-                return false;
-            }
-
-            return _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
+            return cryptoPeer.Peer != null && _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
         }
 
         public void Add(CryptoPeer cryptoPeer)
@@ -52,9 +47,12 @@ namespace FileSharing.Models
 
             if (!Has(cryptoPeer.Peer.Id))
             {
-                _cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer);
+                if (_cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer))
+                {
+                    _cryptoPeers[cryptoPeer.Peer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
 
-                PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoPeer.Peer.Id));
+                    PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoPeer.Peer.Id));
+                }
             }
         }
 
@@ -62,10 +60,19 @@ namespace FileSharing.Models
         {
             if (Has(peerID))
             {
-                _cryptoPeers.TryRemove(peerID, out _);
+                if (_cryptoPeers.TryRemove(peerID, out CryptoPeer? removedPeer) &&
+                    removedPeer != null)
+                {
+                    removedPeer.PeerDisconnected -= OnCryptoPeerDisconnected;
 
-                PeerRemoved?.Invoke(this, new CryptoPeerEventArgs(peerID));
+                    PeerRemoved?.Invoke(this, new CryptoPeerEventArgs(peerID));
+                }
             }
+        }
+
+        private void OnCryptoPeerDisconnected(object? sender, CryptoPeerEventArgs e)
+        {
+            PeerRemoved?.Invoke(this, e);
         }
 
         public IEnumerator<CryptoPeer> GetEnumerator()

@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using LiteNetLib;
 
 namespace FileSharing.Models
 {
     public class FilesFromServer
     {
         private readonly ConcurrentDictionary<int, FileInfo> _files;
+        private readonly NetPeer _server;
 
-        public FilesFromServer()
+        public FilesFromServer(NetPeer server)
         {
             _files = new ConcurrentDictionary<int, FileInfo>();
+            _server = server;
         }
 
         public event EventHandler<EventArgs>? ListUpdated;
@@ -30,7 +33,10 @@ namespace FileSharing.Models
             newFiles.Sort((x, y) => x.Name.CompareTo(y.Name));
             for (int i = 0; i < newFiles.Count; i++)
             {
-                _files.TryAdd(i, newFiles[i]);
+                if (_files.TryAdd(i, newFiles[i]))
+                {
+                    _files[i].Server = _server;
+                }
             }
 
             ListUpdated?.Invoke(this, EventArgs.Empty);

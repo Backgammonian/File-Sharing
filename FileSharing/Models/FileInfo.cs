@@ -1,5 +1,4 @@
-﻿using System.Net;
-using LiteNetLib;
+﻿using LiteNetLib;
 
 namespace FileSharing.Models
 {
@@ -7,9 +6,10 @@ namespace FileSharing.Models
     {
         public FileInfo()
         {
-            Name = "";
+            Name = string.Empty;
             Size = 0;
-            Hash = "";
+            Hash = string.Empty;
+            Server = null;
         }
 
         public FileInfo(string name, long size, string hash, NetPeer server)
@@ -18,6 +18,14 @@ namespace FileSharing.Models
             Size = size;
             Hash = hash;
             Server = server;
+        }
+
+        public FileInfo(SharedFile sharedFile)
+        {
+            Name = sharedFile.Name;
+            Size = sharedFile.Size;
+            Hash = sharedFile.Hash;
+            Server = null;
         }
 
         public string Name { get; set; }

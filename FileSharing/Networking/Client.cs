@@ -76,6 +76,11 @@ namespace FileSharing.Networking
             _servers.Remove(server.Peer.Id);
         }
 
+        public void DisconnectAll()
+        {
+            _client.DisconnectAll();
+        }
+
         public void ConnectToServer(string ip, int port)
         {
             var netPeer = _client.Connect(ip, port, "ToFileServer");
@@ -117,7 +122,6 @@ namespace FileSharing.Networking
             _listener.PeerDisconnectedEvent += (peer, disconnectInfo) =>
             {
                 _servers.Remove(peer.Id);
-                ServerRemoved?.Invoke(this, new CryptoPeerEventArgs(peer.Id));
 
                 Debug.WriteLine("(Client_PeerDisconnectedEvent) Server {0} disconnected, info: {1}",
                     peer.EndPoint,
@@ -158,7 +162,7 @@ namespace FileSharing.Networking
                         dataReader.GetBytes(signaturePublicKey, signaturePublicKey.Length);
                         _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
 
-                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + _servers[fromPeer.Id].Peer.EndPoint);
+                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + fromPeer.EndPoint);
                     }
                     catch (Exception e)
                     {

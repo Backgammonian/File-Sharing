@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Layers;
-using LiteNetLib.Utils;
 using FileSharing.Models;
+using FileSharing.Utils;
 
 namespace FileSharing.Networking
 {
@@ -72,11 +72,11 @@ namespace FileSharing.Networking
             _server.DisconnectAll();
         }
 
-        public void SendToAll(NetDataWriter netDataWriter)
+        public void SendToAll(SimpleWriter message)
         {
             foreach (var client in _clients.EstablishedList)
             {
-                client.SendEncrypted(netDataWriter);
+                client.SendEncrypted(message);
             }
         }
 
@@ -91,7 +91,7 @@ namespace FileSharing.Networking
                 Debug.WriteLine("(Server_PeerConnectedEvent) New connection: {0}", peer.EndPoint);
 
                 var client = new CryptoPeer();
-                client.ChangePeer(peer);
+                client.SetPeer(peer);
                 _clients.Add(client);
             };
 
@@ -114,9 +114,10 @@ namespace FileSharing.Networking
                 }
 
                 if (_clients.Has(fromPeer.Id) &&
-                    _clients[fromPeer.Id].IsEstablished)
+                    _clients[fromPeer.Id].IsSecurityEnabled)
                 {
                     var data = _clients[fromPeer.Id].DecryptReceivedData(dataReader);
+
                     MessageReceived?.Invoke(this, new NetEventArgs(_clients[fromPeer.Id], data));
                 }
                 else
@@ -125,7 +126,7 @@ namespace FileSharing.Networking
                     Debug.WriteLine("(Server_NetworkReceiveEvent) Unknown client: " + fromPeer.EndPoint);
                 }
                 else
-                if (!_clients[fromPeer.Id].IsEstablished)
+                if (!_clients[fromPeer.Id].IsSecurityEnabled)
                 {
                     Debug.WriteLine("(Server_NetworkReceiveEvent_Keys) Trying to get keys from client " + fromPeer.EndPoint);
 
@@ -138,7 +139,7 @@ namespace FileSharing.Networking
                         _clients[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
                         _clients[fromPeer.Id].SendPublicKeys();
 
-                        Debug.WriteLine("(Server_NetworkReceiveEvent_Keys) Received keys from client " + _clients[fromPeer.Id].EndPoint);
+                        Debug.WriteLine("(Server_NetworkReceiveEvent_Keys) Received keys from client " + fromPeer.EndPoint);
                     }
                     catch (Exception e)
                     {

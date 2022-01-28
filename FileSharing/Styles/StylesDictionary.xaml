@@ -135,8 +135,19 @@
     <Style x:Key="hashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
         <Setter Property="Text" Value="Calculating hash..."/>
         <Style.Triggers>
-            <DataTrigger Binding="{Binding HasHash}" Value="True">
-                <Setter Property="Text" Value="{Binding Hash, StringFormat={}Hash: {0}}"/>
+            <DataTrigger Binding="{Binding IsHashCalculated}" Value="True">
+                <Setter Property="Text" Value="{Binding Hash, StringFormat={}SHA256 Hash: {0}}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="isFileCorrupted" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+        <Setter Property="Text" Value="Error: file not found on local storage"/>
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Setter Property="Foreground" Value="Red" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCorrupted}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>

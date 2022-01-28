@@ -9,7 +9,8 @@ namespace FileSharing.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return Math.Round((double)value * 100.0, 2) + "%";
+            var progress = (decimal)value;
+            return decimal.Round(progress * (decimal)100.0, 2) + "%";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

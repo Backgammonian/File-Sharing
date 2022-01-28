@@ -37,6 +37,13 @@ namespace FileSharing.Utils
             _length += array.Length;
         }
 
+        public void Put(long value)
+        {
+            var array = BitConverter.GetBytes(value);
+            _data.Add(array);
+            _length += array.Length;
+        }
+
         public void Put(string value)
         {
             if (string.IsNullOrEmpty(value))

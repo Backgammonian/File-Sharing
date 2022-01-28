@@ -28,7 +28,7 @@ namespace FileSharing.Converters
 
             int i = 0;
             decimal dValue = value;
-            while (Math.Round(dValue, decimalPlaces) >= 1000)
+            while (decimal.Round(dValue, decimalPlaces) >= 1000)
             {
                 dValue /= 1024;
                 i++;

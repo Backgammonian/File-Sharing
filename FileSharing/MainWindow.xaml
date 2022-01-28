@@ -72,7 +72,7 @@
                                 <TabItem.Content>
                                     <ListBox
                                         ItemsSource="{Binding SharedFiles}"
-                                        SelectedItem="{Binding SharedFile}">
+                                        SelectedItem="{Binding SelectedSharedFile}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel
@@ -88,6 +88,8 @@
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Path, StringFormat={}Path: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource isFileCorrupted}"/>
                                                     <Button 
                                                         Style="{StaticResource popUpButtonStyle}"
                                                         Command="{Binding DataContext.RemoveSharedFileCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
@@ -124,19 +126,19 @@
                                                     Style="{StaticResource stackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource titleStyle}" 
-                                                        Text="{Binding Destination, Converter={StaticResource cryptoChannelConverter}}" />
+                                                        Text="{Binding Destination.Peer, Converter={StaticResource ipEndPointConverter}, StringFormat={}Destination: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding FileName, StringFormat={}File name: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding FileSize, Converter={StaticResource bytesToMegabytesConverter}}" />
+                                                        Text="{Binding FileSize, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Size: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding FileHash, StringFormat={}Hash: {0}}" />
+                                                        Text="{Binding FileHash, StringFormat={}SHA256 Hash: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding Path=Progress, Converter={StaticResource progressConverter}, StringFormat={}Progress: {0}}" />
+                                                        Text="{Binding Progress, Converter={StaticResource progressConverter}, StringFormat={}Progress: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Start time: {0}}" />
@@ -171,21 +173,21 @@
                                                     Style="{StaticResource stackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource titleStyle}" 
-                                                        Text="{Binding EndPoint, Converter={StaticResource ipEndPointConverter}}" />
+                                                        Text="{Binding Peer, Converter={StaticResource ipEndPointConverter}, StringFormat={}Client: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding Peer, Converter={StaticResource connectionStatusConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource peerEncryptionStatus}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding ConnectionState, Converter={StaticResource connectionStatusConverter}}" />
-                                                    <TextBlock 
-                                                        Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Time of connection: {0}}" />
+                                                        Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Connect time: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding ConnectionDuration, Converter={StaticResource timeSpanConverter}, StringFormat={}Connection duration: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding BytesUploaded, Converter={StaticResource bytesConverter}, StringFormat={}Bytes uploaded: {0}}" />
+                                                        Text="{Binding BytesUploaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Bytes uploaded: {0}}" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -196,6 +198,7 @@
                         <WrapPanel
                             Grid.Row="1">
                             <Button
+                                Command="{Binding AddFileCommand}"
                                 Style="{StaticResource baseButtonStyle}">
                                 <TextBlock
                                     Style="{StaticResource baseTextBlockStyle}"
@@ -258,7 +261,7 @@
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding Hash, StringFormat={}Hash: {0}}" />
+                                                        Text="{Binding Hash, StringFormat={}SHA256 Hash: {0}}" />
                                                     <Button 
                                                         Style="{StaticResource popUpButtonStyle}"
                                                         Command="{Binding DataContext.DownloadFileCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
@@ -305,7 +308,7 @@
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding Hash, StringFormat={}Hash: {0}}" />
+                                                        Text="{Binding Hash, StringFormat={}SHA256 Hash: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}}" />
@@ -314,6 +317,8 @@
                                                         Text="{Binding Progress, Converter={StaticResource progressConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource cancellationStatus}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource isFileCorrupted}"/>
                                                     <Button
                                                         Style="{StaticResource cancellationButton}"
                                                         Command="{Binding DataContext.CancelDownloadCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"

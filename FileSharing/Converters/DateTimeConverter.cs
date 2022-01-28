@@ -10,12 +10,13 @@ namespace FileSharing.Converters
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             var dateTime = (DateTime)value;
-            return dateTime.Day + " " +
-                _monthAbbreviations[dateTime.Month - 1] + " " +
-                dateTime.Year + " " +
-                dateTime.Hour + ":" +
-                Format(dateTime.Minute) + ":" +
-                Format(dateTime.Second);
+            return string.Format("{0}:{1}:{2}, {3} {4} {5}", 
+                dateTime.Hour, 
+                Format(dateTime.Minute), 
+                Format(dateTime.Second), 
+                dateTime.Day, 
+                _monthAbbreviations[dateTime.Month - 1], 
+                dateTime.Year);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

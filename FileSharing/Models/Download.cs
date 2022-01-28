@@ -24,6 +24,7 @@ namespace FileSharing.Models
         private bool _isCancelled;
         private long _bytesDownloaded;
         private double _downloadSpeed;
+        private bool _isCorrupted;
 
         public Download(string name, long size, string hash, NetPeer server, string path)
         {
@@ -59,6 +60,8 @@ namespace FileSharing.Models
 
             InitializeTimer();
         }
+
+        public event EventHandler<EventArgs> FileRemoved;
 
         private void InitializeTimer()
         {
@@ -140,10 +143,21 @@ namespace FileSharing.Models
             private set => SetProperty(ref _downloadSpeed, value);
         }
 
-        public double Progress => Convert.ToDouble(BytesDownloaded) / Convert.ToDouble(Size);
+        public bool IsCorrupted
+        {
+            get => _isCorrupted;
+            private set => SetProperty(ref _isCorrupted, value);
+        }
+
+        public decimal Progress => BytesDownloaded / Convert.ToDecimal(Size);
 
         public bool TryOpenFile()
         {
+            if (IsCorrupted)
+            {
+                return false;
+            }
+            
             try
             {
                 _speedCounter.Start();
@@ -151,11 +165,10 @@ namespace FileSharing.Models
 
                 return true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.WriteLine(e);
-
                 _speedCounter.Stop();
+                IsCorrupted = true;
 
                 return false;
             }
@@ -163,6 +176,11 @@ namespace FileSharing.Models
 
         public void ShutdownFile()
         {
+            if (IsCorrupted)
+            {
+                return;
+            }
+
             try
             {
                 DownloadSpeed = 0;
@@ -172,23 +190,35 @@ namespace FileSharing.Models
             }
             catch (Exception)
             {
+                IsCorrupted = true;
             }
         }
 
-        public void Write(uint numOfSegment, byte[] segment)
+        public bool TryWrite(long numOfSegment, byte[] segment)
         {
+            if (IsCorrupted)
+            {
+                return false;
+            }
+
             try
             {
                 _stream.Seek(numOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
                 _stream.Write(segment, 0, segment.Length);
+
                 AddReceivedBytes(segment.Length);
+
+                return true;
             }
             catch (Exception)
             {
+                IsCorrupted = true;
+
+                return false;
             }
         }
 
-        private void AddReceivedBytes(int amountOfBytes)
+        private void AddReceivedBytes(long amountOfBytes)
         {
             if (IsCancelled || IsDownloaded)
             {
@@ -222,6 +252,8 @@ namespace FileSharing.Models
             try
             {
                 File.Delete(Path);
+
+                FileRemoved?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception)
             {

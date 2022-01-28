@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using LiteNetLib;
 
 namespace FileSharing.Models
 {
@@ -30,14 +31,16 @@ namespace FileSharing.Models
             return _filesFromServers.ContainsKey(serverID);
         }
 
-        public void AddServer(int serverID)
+        public void AddServer(NetPeer server)
         {
-            if (!HasServer(serverID))
+            if (!HasServer(server.Id))
             {
-                _filesFromServers.TryAdd(serverID, new FilesFromServer());
-                _filesFromServers[serverID].ListUpdated += OnFileListUpdated;
+                if (_filesFromServers.TryAdd(server.Id, new FilesFromServer(server)))
+                {
+                    _filesFromServers[server.Id].ListUpdated += OnFileListUpdated;
 
-                FilesUpdated?.Invoke(this, EventArgs.Empty);
+                    FilesUpdated?.Invoke(this, EventArgs.Empty);
+                }
             }
         }
 
@@ -45,10 +48,13 @@ namespace FileSharing.Models
         {
             if (HasServer(serverID))
             {
-                _filesFromServers[serverID].ListUpdated -= OnFileListUpdated;
-                _filesFromServers.TryRemove(serverID, out _);
+                if (_filesFromServers.TryRemove(serverID, out FilesFromServer? removedList) &&
+                    removedList != null)
+                {
+                    removedList.ListUpdated -= OnFileListUpdated;
 
-                FilesUpdated?.Invoke(this, EventArgs.Empty);
+                    FilesUpdated?.Invoke(this, EventArgs.Empty);
+                }
             }
         }
 
