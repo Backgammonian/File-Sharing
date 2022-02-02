@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using LiteNetLib;
 
 namespace FileSharing.Models
@@ -13,12 +15,12 @@ namespace FileSharing.Models
         public FilesFromServers()
         {
             _filesFromServers = new ConcurrentDictionary<int, FilesFromServer>();
-            AvailableFiles = new ObservableCollection<FileInfo>();
+            List = new List<FileInfo>();
         }
 
         public event EventHandler<EventArgs>? FilesUpdated;
 
-        public ObservableCollection<FileInfo> AvailableFiles { get; }
+        public List<FileInfo> List { get; }
 
         public FilesFromServer this[int serverID]
         {
@@ -40,6 +42,8 @@ namespace FileSharing.Models
                     _filesFromServers[server.Id].ListUpdated += OnFileListUpdated;
 
                     FilesUpdated?.Invoke(this, EventArgs.Empty);
+
+                    Debug.WriteLine("(AddServer) server: " + server.EndPoint);
                 }
             }
         }
@@ -48,6 +52,8 @@ namespace FileSharing.Models
         {
             if (HasServer(serverID))
             {
+                _filesFromServers[serverID].Clear();
+
                 if (_filesFromServers.TryRemove(serverID, out FilesFromServer? removedList) &&
                     removedList != null)
                 {
@@ -60,14 +66,20 @@ namespace FileSharing.Models
 
         private void OnFileListUpdated(object? sender, EventArgs e)
         {
-            AvailableFiles.Clear();
+            List.Clear();
             foreach (var serverFilesList in _filesFromServers.Values)
             {
                 var files = serverFilesList.Files;
                 foreach (var file in files)
                 {
-                    AvailableFiles.Add(file);
+                    List.Add(file);
                 }
+            }
+
+            Debug.WriteLine("AvailableFiles");
+            foreach (var file in List)
+            {
+                Debug.WriteLine(file.Name + " " + file.Server.EndPoint);
             }
 
             FilesUpdated?.Invoke(this, EventArgs.Empty);

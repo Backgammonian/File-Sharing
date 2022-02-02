@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
@@ -16,24 +15,31 @@ namespace FileSharing.Models
         private readonly Random _random;
         private readonly DispatcherTimer _durationTimer;
         private readonly CryptographyModule _cryptography;
-        private NetPeer? _peer;
         private DateTime _startTime;
         private TimeSpan _connectionDuration;
         private long _bytesUploaded;
         private long _bytesDownloaded;
-        private bool _isConnectionExpected;
-        private NetPeer? _expectedServer;
+        private const int _timeout = 10;
+        private readonly DispatcherTimer _disconnectTimer;
 
-        public CryptoPeer()
+        public CryptoPeer(NetPeer peer)
         {
+            Peer = peer;
             _random = new Random();
             _durationTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _durationTimer.Interval = new TimeSpan(0, 0, 1);
             _durationTimer.Tick += OnDurationTimerTick;
             _cryptography = new CryptographyModule();
+            _disconnectTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
+            _disconnectTimer.Interval = new TimeSpan(0, 0, _timeout);
+            _disconnectTimer.Tick += OnDisconnectTimerTick;
+            _disconnectTimer.Start();
         }
 
         public event EventHandler<CryptoPeerEventArgs>? PeerDisconnected;
+
+        public NetPeer Peer { get; }
+        public bool IsSecurityEnabled => _cryptography.IsEnabled;
 
         public DateTime StartTime
         {
@@ -59,49 +65,22 @@ namespace FileSharing.Models
             private set => SetProperty(ref _bytesDownloaded, value);
         }
 
-        public NetPeer? Peer
-        {
-            get => _peer;
-            private set => SetProperty(ref _peer, value);
-        }
-
-        public bool IsSecurityEnabled => Peer != null && _cryptography.IsEnabled;
-
         private void OnDurationTimerTick(object? sender, EventArgs e)
         {
             ConnectionDuration = DateTime.Now - StartTime;
         }
 
-        public void ExpectConnectionFromServer(NetPeer server)
+        private void OnDisconnectTimerTick(object? sender, EventArgs e)
         {
-            _expectedServer = server;
-            _isConnectionExpected = true;
-        }
-
-        public bool ApproveExpectedConnection(NetPeer server)
-        {
-            return server != null &&
-                _expectedServer != null &&
-                _isConnectionExpected &&
-                _expectedServer.EndPoint.ToString() == server.EndPoint.ToString() &&
-                _expectedServer.Id == server.Id;
-        }
-
-        public void SetPeer(NetPeer peer)
-        {
-            Peer = peer;
-
-            _expectedServer = null;
-            _isConnectionExpected = false;
-        }
-
-        public bool SendPublicKeys()
-        {
-            if (Peer == null)
+            _disconnectTimer.Stop();
+            if (!IsSecurityEnabled)
             {
-                return false;
+                Disconnect();
             }
+        }
 
+        public void SendPublicKeys()
+        {
             var keys = new NetDataWriter();
             var publicKey = _cryptography.PublicKey.ToArray();
             keys.Put(publicKey.Length);
@@ -111,35 +90,19 @@ namespace FileSharing.Models
             keys.Put(signaturePublicKey);
 
             Peer.Send(keys, 0, DeliveryMethod.ReliableOrdered);
-
-            return true;
         }
 
-        public bool ApplyKeys(byte[] publicKey, byte[] signaturePublicKey)
+        public void ApplyKeys(byte[] publicKey, byte[] signaturePublicKey)
         {
-            if (Peer == null)
-            {
-                return false;
-            }
-
             _cryptography.SetKeys(publicKey, signaturePublicKey);
             OnPropertyChanged(nameof(IsSecurityEnabled));
 
             StartTime = DateTime.Now;
             _durationTimer.Start();
-
-            return true;
         }
 
         public bool SendEncrypted(byte[] message)
         {
-            if (Peer == null)
-            {
-                Debug.WriteLine("(SendEncrypted) Peer is not set!");
-
-                return false;
-            }
-
             if (!IsSecurityEnabled)
             {
                 Debug.WriteLine("(SendEncrypted) Encryption with peer " + Peer.EndPoint + " is not established!");
@@ -187,13 +150,6 @@ namespace FileSharing.Models
 
         public NetDataReader DecryptReceivedData(NetPacketReader message)
         {
-            if (Peer == null)
-            {
-                Debug.WriteLine("(DecryptReceivedData) Peer is not set!");
-
-                return new NetDataReader(Array.Empty<byte>());
-            }
-
             if (!IsSecurityEnabled)
             {
                 Debug.WriteLine("(DecryptReceivedData) Encryption is not established! " + Peer.EndPoint);
@@ -239,11 +195,6 @@ namespace FileSharing.Models
 
         public void Disconnect()
         {
-            if (Peer == null)
-            {
-                return;
-            }
-
             var id = Peer.Id;
             Peer.Disconnect();
             _durationTimer.Stop();

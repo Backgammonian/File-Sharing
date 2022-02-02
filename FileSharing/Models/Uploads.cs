@@ -56,10 +56,7 @@ namespace FileSharing.Models
 
         public void CancelAllUploadsOfPeer(int peerID)
         {
-            var requiredUploads = _uploads.Values.
-                Where(upload =>
-                    upload.Destination.Peer != null &&
-                    upload.Destination.Peer.Id == peerID);
+            var requiredUploads = _uploads.Values.Where(upload => upload.Destination.Peer.Id == peerID);
 
             foreach (var upload in requiredUploads)
             {

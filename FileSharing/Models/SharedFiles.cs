@@ -22,7 +22,7 @@ namespace FileSharing.Models
         }
 
         public event EventHandler<EventArgs>? SharedFileAdded;
-        public event EventHandler<EventArgs>? SharedFileChanged;
+        public event EventHandler<EventArgs>? SharedFileHashCalculated;
         public event EventHandler<EventArgs>? SharedFileRemoved;
 
         public SharedFile this[long index]
@@ -93,6 +93,7 @@ namespace FileSharing.Models
 
                     Debug.WriteLine("(AddFileRoutine) File " + sharedFile.Name + " added to collection of files");
 
+                    _files[sharedFile.Index].OpenStream();
                     _files[sharedFile.Index].ComputeHashOfFile();
 
                     Debug.WriteLine("(AddFileRoutine) Hash for file " + _files[sharedFile.Index].Name + " has been calculated: " + _files[sharedFile.Index].Hash);
@@ -106,7 +107,7 @@ namespace FileSharing.Models
 
         private void OnSharedFileHashCalculated(object? sender, EventArgs e)
         {
-            SharedFileChanged?.Invoke(this, EventArgs.Empty);
+            SharedFileHashCalculated?.Invoke(this, EventArgs.Empty);
         }
 
         public void RemoveFile(long fileIndex)

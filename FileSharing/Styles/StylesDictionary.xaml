@@ -12,6 +12,9 @@
     <converters:ProgressConverter x:Key="progressConverter" />
     <converters:TimeSpanConverter x:Key="timeSpanConverter" />
 
+    <SolidColorBrush x:Key="ServerColor" Color="LightGreen" Opacity="0.5"/>
+    <SolidColorBrush x:Key="ClientColor" Color="Blue" Opacity="0.07"/>
+
     <Style x:Key="rectangleStyle" TargetType="Rectangle">
         <Setter Property="Width" Value="7" />
         <Setter Property="Height" Value="7" />
@@ -30,6 +33,20 @@
         <Setter Property="FontSize" Value="14" />
         <Setter Property="TextAlignment" Value="Left" />
         <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="popUpTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Style.Triggers>
+            <DataTrigger 
+                Binding="{Binding RelativeSource={RelativeSource 
+                    Mode=FindAncestor, 
+                    AncestorType={x:Type ListBoxItem}},
+                    Path=IsSelected}" 
+                Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="titleStyle" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
@@ -62,10 +79,10 @@
     <Style x:Key="peerEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
         <Setter Property="Text" Value="No encryption?"/>
         <Style.Triggers>
-            <DataTrigger Binding="{Binding IsEstablished}" Value="True">
+            <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="True">
                 <Setter Property="Text" Value="Encrypted"/>
             </DataTrigger>
-            <DataTrigger Binding="{Binding IsEstablished}" Value="False">
+            <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="False">
                 <Setter Property="Text" Value="NOT encrypted"/>
             </DataTrigger>
         </Style.Triggers>
@@ -122,17 +139,27 @@
     </Style>
 
     <Style x:Key="finishTimeTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
-        <Setter Property="Text" Value="Finish time"/>
         <Setter Property="Visibility" Value="Collapsed"/>
+        <Setter Property="Text" Value="Finish time"/>
         <Style.Triggers>
-            <DataTrigger Binding="{Binding IsFinished}" Value="True">
-                <Setter Property="Text" Value="{Binding FinishTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Finish time: {0}}"/>
-                <Setter Property="Visibility" Value="Visible"/>
-            </DataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsFinished}" Value="True" />
+                    <Condition Binding="{Binding RelativeSource={RelativeSource 
+                        Mode=FindAncestor, 
+                        AncestorType={x:Type ListBoxItem}},
+                        Path=IsSelected}" 
+                        Value="True" />
+                </MultiDataTrigger.Conditions>
+                <MultiDataTrigger.Setters>
+                    <Setter Property="Text" Value="{Binding FinishTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Finish time: {0}}"/>
+                    <Setter Property="Visibility" Value="Visible"/>
+                </MultiDataTrigger.Setters>
+            </MultiDataTrigger>
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="hashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="hashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource popUpTextBlock}">
         <Setter Property="Text" Value="Calculating hash..."/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsHashCalculated}" Value="True">

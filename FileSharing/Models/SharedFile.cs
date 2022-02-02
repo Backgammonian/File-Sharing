@@ -102,20 +102,7 @@ namespace FileSharing.Models
 
         public void CloseStream()
         {
-            if (IsCorrupted)
-            {
-                return;
-            }
-
-            try
-            {
-                _stream.Close();
-                _stream.Dispose();
-            }
-            catch (Exception)
-            {
-                IsCorrupted = true;
-            }
+            _stream.Close();
         }
 
         public void ComputeHashOfFile()
@@ -125,15 +112,14 @@ namespace FileSharing.Models
                 return;
             }
 
-            using (var fs = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.Read, 10 * 1024 * 1024))
-            using (var sha = SHA256.Create())
-            {
-                byte[] hash = sha.ComputeHash(fs);
-                Hash = BitConverter.ToString(hash).ToLower().Replace("-", "");
-                IsHashCalculated = true;
+            using var fs = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.Read, 10 * 1024 * 1024);
+            using var sha = SHA256.Create();
 
-                HashCalculated?.Invoke(this, EventArgs.Empty);
-            }
+            byte[] hash = sha.ComputeHash(fs);
+            Hash = BitConverter.ToString(hash).ToLower().Replace("-", "");
+            IsHashCalculated = true;
+
+            HashCalculated?.Invoke(this, EventArgs.Empty);
         }
 
         public bool TryReadSegment(long numberOfSegment, string uploadID, out SimpleWriter writer)
@@ -147,7 +133,7 @@ namespace FileSharing.Models
 
             try
             {
-                writer.Put((byte)NetMessageTypes.FileSegment);
+                writer.Put((byte)NetMessageType.FileSegment);
                 writer.Put(uploadID);
                 writer.Put(numberOfSegment);
 

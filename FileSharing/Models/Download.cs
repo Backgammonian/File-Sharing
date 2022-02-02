@@ -26,14 +26,17 @@ namespace FileSharing.Models
         private double _downloadSpeed;
         private bool _isCorrupted;
 
-        public Download(string name, long size, string hash, NetPeer server, string path)
+        public Download(string name, long size, string hash, NetPeer? server, string folder)
         {
             ID = RandomGenerator.GetRandomString(20);
             Name = name;
-            Path = path;
+            Path = folder + "\\" + name;
             Size = size;
             Hash = hash;
-            Server = server;
+            if (server != null)
+            {
+                Server = server;
+            }
             IsDownloaded = false;
             IsCancelled = false;
             BytesDownloaded = 0;
@@ -42,11 +45,11 @@ namespace FileSharing.Models
             InitializeTimer();
         }
 
-        public Download(FileInfo file, string path)
+        public Download(FileInfo file, string folder)
         {
             ID = RandomGenerator.GetRandomString(20);
             Name = file.Name;
-            Path = path;
+            Path = folder + "\\" + file.Name;
             Size = file.Size;
             Hash = file.Hash;
             if (file.Server != null)
@@ -61,7 +64,7 @@ namespace FileSharing.Models
             InitializeTimer();
         }
 
-        public event EventHandler<EventArgs> FileRemoved;
+        public event EventHandler<EventArgs>? FileRemoved;
 
         private void InitializeTimer()
         {

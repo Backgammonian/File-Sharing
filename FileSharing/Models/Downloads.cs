@@ -68,11 +68,14 @@ namespace FileSharing.Models
             }
         }
 
-        public bool HasFileWithSamePath(string downloadFilePath, out string downloadID)
+        public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
         {
             foreach (var download in _downloads.Values)
             {
-                if (download.Path == downloadFilePath)
+                if (download.Path == downloadFilePath &&
+                    !download.IsDownloaded &&
+                    !download.IsCancelled &&
+                    !download.IsCorrupted)
                 {
                     downloadID = download.ID;
                     return true;

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Collections;
+using System.Diagnostics;
+using System.Net;
 
 namespace FileSharing.Models
 {
@@ -35,20 +37,24 @@ namespace FileSharing.Models
 
         public bool Has(CryptoPeer cryptoPeer)
         {
-            return cryptoPeer.Peer != null && _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
+            return _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
+        }
+
+        public bool IsConnectedToEndPoint(IPEndPoint endPoint)
+        {
+            return _cryptoPeers.Values.Any(cryptoPeer =>
+                cryptoPeer.Peer.EndPoint.Address.ToString() == endPoint.Address.ToString() &&
+                cryptoPeer.Peer.EndPoint.Port == endPoint.Port);
         }
 
         public void Add(CryptoPeer cryptoPeer)
         {
-            if (cryptoPeer.Peer == null)
-            {
-                return;
-            }
-
             if (!Has(cryptoPeer.Peer.Id))
             {
                 if (_cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer))
                 {
+                    Debug.WriteLine("(CryptoPeers_Add) Adding peer " + cryptoPeer.Peer.EndPoint + " with id " + cryptoPeer.Peer.Id);
+
                     _cryptoPeers[cryptoPeer.Peer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
 
                     PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoPeer.Peer.Id));

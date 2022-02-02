@@ -16,11 +16,11 @@ namespace FileSharing.Networking
         private readonly XorEncryptLayer _xor;
         private readonly NetManager _server;
         private readonly CryptoPeers _clients;
-        private readonly int _port;
+        private int _port;
         private Task _listenTask;
         private CancellationTokenSource _tokenSource;
 
-        public Server(int port)
+        public Server()
         {
             _listener = new EventBasedNetListener();
             _xor = new XorEncryptLayer("VerySecretSymmetricXorPassword");
@@ -28,7 +28,6 @@ namespace FileSharing.Networking
             {
                 ChannelsCount = 8
             };
-            _port = port;
             _clients = new CryptoPeers();
             _clients.PeerAdded += OnClientAdded;
             _clients.PeerRemoved += OnClientRemoved;
@@ -61,6 +60,16 @@ namespace FileSharing.Networking
             }
         }
 
+        public CryptoPeer? GetClientByID(int clientID)
+        {
+            if (_clients.Has(clientID))
+            {
+                return _clients[clientID];
+            }
+
+            return null;
+        }
+
         public void Stop()
         {
             _tokenSource.Cancel();
@@ -80,8 +89,9 @@ namespace FileSharing.Networking
             }
         }
 
-        public void StartListening()
+        public void StartListening(int port)
         {
+            _port = port;
             _server.Start(_port);
 
             _listener.ConnectionRequestEvent += request => request.AcceptIfKey("ToFileServer");
@@ -90,8 +100,7 @@ namespace FileSharing.Networking
             {
                 Debug.WriteLine("(Server_PeerConnectedEvent) New connection: {0}", peer.EndPoint);
 
-                var client = new CryptoPeer();
-                client.SetPeer(peer);
+                var client = new CryptoPeer(peer);
                 _clients.Add(client);
             };
 
@@ -137,6 +146,7 @@ namespace FileSharing.Networking
                         var signaturePublicKey = new byte[dataReader.GetInt()];
                         dataReader.GetBytes(signaturePublicKey, signaturePublicKey.Length);
                         _clients[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
+
                         _clients[fromPeer.Id].SendPublicKeys();
 
                         Debug.WriteLine("(Server_NetworkReceiveEvent_Keys) Received keys from client " + fromPeer.EndPoint);

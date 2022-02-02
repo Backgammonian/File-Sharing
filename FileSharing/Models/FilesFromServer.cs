@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using LiteNetLib;
 
 namespace FileSharing.Models
@@ -35,8 +36,16 @@ namespace FileSharing.Models
             {
                 if (_files.TryAdd(i, newFiles[i]))
                 {
+                    Debug.WriteLine("Added file " + newFiles[i].Name);
+
                     _files[i].Server = _server;
                 }
+            }
+
+            Debug.WriteLine("--List of files from server " + _server);
+            foreach (var file in _files.Values)
+            {
+                Debug.WriteLine(file.Name);
             }
 
             ListUpdated?.Invoke(this, EventArgs.Empty);

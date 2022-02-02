@@ -7,13 +7,13 @@
         mc:Ignorable="d"
         Title="Input" 
         WindowStartupLocation="CenterScreen"
-        ContentRendered="Window_ContentRendered"
+        ContentRendered="OnContentRendered"
         SizeToContent="WidthAndHeight">
     <DockPanel
         LastChildFill="True"
         Margin="20">
         <Label
-            x:Name="lblQuestion"
+            x:Name="_question"
             DockPanel.Dock="Top"
             HorizontalContentAlignment="Center" 
             Content="Question:"/>
@@ -21,7 +21,7 @@
             DockPanel.Dock="Top"
             Height="20"/>
         <TextBox
-            x:Name="txtAnswer" 
+            x:Name="_answer" 
             DockPanel.Dock="Top"
             Text="Answer"/>
         <Label
@@ -31,16 +31,15 @@
             Width="130"
             HorizontalAlignment="Right">
             <Button
-                x:Name="btnDialogOk"
-                Click="btnDialogOk_Click"
+                Click="OkClick"
                 IsDefault="True"
                 MinWidth="60" 
-                Content="_Ok"/>
+                Content="Ok"/>
             <Button
                 IsCancel="True"
                 MinWidth="60"
                 Margin="10, 0, 0, 0" 
-                Content="_Cancel"/>
+                Content="Cancel"/>
         </WrapPanel>
     </DockPanel>
 </Window>

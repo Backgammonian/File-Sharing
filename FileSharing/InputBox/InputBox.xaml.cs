@@ -10,21 +10,21 @@ namespace FileSharing.InputBox
             InitializeComponent();
 
             Title = title;
-            lblQuestion.Content = question;
-            txtAnswer.Text = defaultAnswer;
+            _question.Content = question;
+            _answer.Text = defaultAnswer;
         }
 
-        public string Answer => txtAnswer.Text;
+        public string Answer => _answer.Text;
 
-        private void btnDialogOk_Click(object sender, RoutedEventArgs e)
+        private void OkClick(object sender, RoutedEventArgs e)
         {
             DialogResult = true;
         }
 
-        private void Window_ContentRendered(object sender, EventArgs e)
+        private void OnContentRendered(object sender, EventArgs e)
         {
-            txtAnswer.SelectAll();
-            txtAnswer.Focus();
+            _answer.SelectAll();
+            _answer.Focus();
         }
     }
 }

@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net;
 using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Layers;
-using LiteNetLib.Utils;
 using FileSharing.Models;
 
 namespace FileSharing.Networking
@@ -16,6 +16,7 @@ namespace FileSharing.Networking
         private readonly XorEncryptLayer _xor;
         private readonly NetManager _client;
         private readonly CryptoPeers _servers;
+        private readonly List<string> _expectedPeers; //IP:port
         private Task _listenTask;
         private CancellationTokenSource _tokenSource;
 
@@ -30,10 +31,12 @@ namespace FileSharing.Networking
             _servers = new CryptoPeers();
             _servers.PeerAdded += OnServerAdded;
             _servers.PeerRemoved += OnServerRemoved;
+            _expectedPeers = new List<string>();
         }
 
         public event EventHandler<NetEventArgs>? MessageReceived;
         public event EventHandler<CryptoPeerEventArgs>? ServerAdded;
+        public event EventHandler<CryptoPeerEventArgs>? ServerConnected;
         public event EventHandler<CryptoPeerEventArgs>? ServerRemoved;
 
         public int LocalPort => _client.LocalPort;
@@ -59,6 +62,29 @@ namespace FileSharing.Networking
             }
         }
 
+        public bool IsConnectedToServer(int serverID, out CryptoPeer? server)
+        {
+            if (_servers.Has(serverID) &&
+                _servers[serverID].IsSecurityEnabled)
+            {
+                server = _servers[serverID];
+                return true;
+            }
+
+            server = null;
+            return false;
+        }
+
+        public CryptoPeer? GetServerByID(int serverID)
+        {
+            if (_servers.Has(serverID))
+            {
+                return _servers[serverID];
+            }
+
+            return null;
+        }
+
         public void Stop()
         {
             _tokenSource.Cancel();
@@ -67,11 +93,6 @@ namespace FileSharing.Networking
 
         public void DisconnectFromServer(CryptoPeer server)
         {
-            if (server.Peer == null)
-            {
-                return;
-            }
-
             server.Disconnect();
             _servers.Remove(server.Peer.Id);
         }
@@ -81,19 +102,17 @@ namespace FileSharing.Networking
             _client.DisconnectAll();
         }
 
-        public void ConnectToServer(string ip, int port)
+        public void ConnectToServer(IPEndPoint serverAddress)
         {
-            var netPeer = _client.Connect(ip, port, "ToFileServer");
-            if (netPeer.ConnectionState == ConnectionState.Connected)
+            if (_servers.IsConnectedToEndPoint(serverAddress))
             {
-                Debug.WriteLine("Already connected to peer " + ip + ":" + port);
+                Debug.WriteLine("Already connected to server " + serverAddress);
 
                 return;
             }
 
-            var server = new CryptoPeer();
-            server.ExpectConnectionFromServer(netPeer);
-            _servers.Add(server);
+            _expectedPeers.Add(serverAddress.ToString());
+            _client.Connect(serverAddress, "ToFileServer");
         }
 
         public void StartListening()
@@ -104,12 +123,15 @@ namespace FileSharing.Networking
 
             _listener.PeerConnectedEvent += peer =>
             {
-                if (_servers[peer.Id].ApproveExpectedConnection(peer))
+                if (_expectedPeers.Contains(peer.EndPoint.ToString()))
                 {
                     Debug.WriteLine("(Client_PeerConnectedEvent) Receiving expected connection from server: {0}", peer.EndPoint);
 
-                    _servers[peer.Id].SetPeer(peer);
-                    _servers[peer.Id].SendPublicKeys();
+                    _expectedPeers.Remove(peer.EndPoint.ToString());
+
+                    var server = new CryptoPeer(peer);
+                    _servers.Add(server);
+                    _servers[server.Peer.Id].SendPublicKeys();
                 }
                 else
                 {
@@ -163,6 +185,8 @@ namespace FileSharing.Networking
                         _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
 
                         Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + fromPeer.EndPoint);
+
+                        ServerConnected?.Invoke(this, new CryptoPeerEventArgs(fromPeer.Id));
                     }
                     catch (Exception e)
                     {

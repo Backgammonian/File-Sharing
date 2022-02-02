@@ -1,7 +1,8 @@
 ﻿namespace FileSharing.Networking
 {
-    public enum NetMessageTypes : byte
+    public enum NetMessageType : byte
     {
+        None = 0,
         FilesListRequest = 10,
         FilesList,
         FileRequest,
