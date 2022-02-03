@@ -11,8 +11,9 @@ WPF-MVVM app for sharing any files between computers.
 * The app can be hidden in system tray
 * User is able to specify port for local file server
 ## ⚠ Warning
-Encryption scheme implemented in this project may be vulnerable to various attacks such as MITM, replay attack, etc\
-This app may be not a very good option for sending sensetive data across Internet
+Encryption scheme implemented in this project may be vulnerable to various attacks such as MITM, replay attack, etc.\
+This app may be not a very good option for sending sensetive data across Internet.\
+Project was created in education purposes.
 ## Demonstration:
 ![uploads](upload.gif)
 ![downloads](download.gif)
