@@ -2,11 +2,11 @@
 
 namespace FileSharing.Models
 {
-    public class CryptoPeerEventArgs : EventArgs
+    public class EncryptedPeerEventArgs : EventArgs
     {
         public int PeerID { get; set; }
 
-        public CryptoPeerEventArgs(int peerID)
+        public EncryptedPeerEventArgs(int peerID)
         {
             PeerID = peerID;
         }

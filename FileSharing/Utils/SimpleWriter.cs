@@ -48,6 +48,7 @@ namespace FileSharing.Utils
         {
             if (string.IsNullOrEmpty(value))
             {
+                Put(0);
                 return;
             }
 
@@ -55,8 +56,7 @@ namespace FileSharing.Utils
             Put(length);
 
             var bytes = Encoding.UTF8.GetBytes(value);
-            _data.Add(bytes);
-            _length += bytes.Length;
+            Put(bytes);
         }
 
         public void Put(byte[] value)

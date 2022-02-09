@@ -4,36 +4,46 @@ using System.IO.Compression;
 
 namespace FileSharing.Utils
 {
-    public static class Compression
+    public static class CompressExtension
     {
-        public static byte[] CompressByteArray(byte[] data)
+        public static bool TryCompressByteArray(this byte[] data, out byte[] result)
         {
-            if (data != null && data.Length > 0)
+            try
             {
                 using var compressedStream = new MemoryStream();
                 using var zipStream = new GZipStream(compressedStream, CompressionMode.Compress);
                 zipStream.Write(data, 0, data.Length);
                 zipStream.Close();
+                result = compressedStream.ToArray();
 
-                return compressedStream.ToArray();
+                return true;
             }
+            catch (Exception)
+            {
+                result = Array.Empty<byte>();
 
-            return Array.Empty<byte>();
+                return false;
+            }
         }
 
-        public static byte[] DecompressByteArray(byte[] data)
+        public static bool TryDecompressByteArray(this byte[] data, out byte[] result)
         {
-            if (data != null && data.Length > 0)
+            try
             {
                 using var compressedStream = new MemoryStream(data);
                 using var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress);
                 using var resultStream = new MemoryStream();
                 zipStream.CopyTo(resultStream);
+                result = resultStream.ToArray();
 
-                return resultStream.ToArray();
+                return true;
             }
+            catch (Exception)
+            {
+                result = Array.Empty<byte>();
 
-            return Array.Empty<byte>();
+                return false;
+            }
         }
     }
 }

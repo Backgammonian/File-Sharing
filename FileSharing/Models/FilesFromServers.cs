@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using LiteNetLib;
 
@@ -33,17 +32,15 @@ namespace FileSharing.Models
             return _filesFromServers.ContainsKey(serverID);
         }
 
-        public void AddServer(NetPeer server)
+        public void AddServer(EncryptedPeer server)
         {
-            if (!HasServer(server.Id))
+            if (!HasServer(server.Peer.Id))
             {
-                if (_filesFromServers.TryAdd(server.Id, new FilesFromServer(server)))
+                if (_filesFromServers.TryAdd(server.Peer.Id, new FilesFromServer(server)))
                 {
-                    _filesFromServers[server.Id].ListUpdated += OnFileListUpdated;
+                    _filesFromServers[server.Peer.Id].ListUpdated += OnFileListUpdated;
 
                     FilesUpdated?.Invoke(this, EventArgs.Empty);
-
-                    Debug.WriteLine("(AddServer) server: " + server.EndPoint);
                 }
             }
         }
@@ -74,12 +71,6 @@ namespace FileSharing.Models
                 {
                     List.Add(file);
                 }
-            }
-
-            Debug.WriteLine("AvailableFiles");
-            foreach (var file in List)
-            {
-                Debug.WriteLine(file.Name + " " + file.Server.EndPoint);
             }
 
             FilesUpdated?.Invoke(this, EventArgs.Empty);

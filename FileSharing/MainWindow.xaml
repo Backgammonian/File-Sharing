@@ -84,8 +84,6 @@
                                                         Style="{StaticResource titleStyle}" 
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
-                                                        Style="{StaticResource isFileCorrupted}"/>
-                                                    <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
                                                     <TextBlock 
@@ -139,6 +137,9 @@
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Progress, Converter={StaticResource progressConverter}, StringFormat={}Progress: {0}}" />
                                                     <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding AverageSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Average speed: {0}}" />
+                                                    <TextBlock 
                                                         Style="{StaticResource cancellationStatus}" />
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
@@ -188,7 +189,16 @@
                                                         Style="{StaticResource peerEncryptionStatus}" />
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
-                                                        Text="{Binding BytesUploaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Bytes uploaded: {0}}" />
+                                                        Text="{Binding BytesUploaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Uploaded: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding UploadSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Upload speed: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding BytesDownloaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Downloaded: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Download speed: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
                                                         Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Connect time: {0}}" />
@@ -272,7 +282,7 @@
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding Server, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
+                                                        Text="{Binding Server, Converter={StaticResource encryptedPeerConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
@@ -321,17 +331,18 @@
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
-                                                        Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}}" />
+                                                        Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Download speed: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding AverageSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Average speed: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding Progress, Converter={StaticResource progressConverter}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource cancellationStatus}"/>
                                                     <TextBlock 
-                                                        Style="{StaticResource isFileCorrupted}"/>
-                                                    <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
-                                                        Text="{Binding Server, Converter={StaticResource ipEndPointConverter}, StringFormat={}Source: {0}}"/>
+                                                        Text="{Binding Server, Converter={StaticResource encryptedPeerConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
                                                         Text="{Binding Size, Converter={StaticResource bytesToMegabytesConverter}}" />
@@ -347,6 +358,17 @@
                                                             Text="Cancel download">
                                                         </TextBlock>
                                                     </Button>
+                                                    <Button
+                                                        Style="{StaticResource hashVerificationButton}"
+                                                        Command="{Binding DataContext.VerifyFileHashCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                        <TextBlock
+                                                            Style="{StaticResource baseTextBlockStyle}"
+                                                            Text="Verify hash">
+                                                        </TextBlock>
+                                                    </Button>
+                                                    <TextBlock 
+                                                        Style="{StaticResource hashVerificationStatus}"/>
                                                     <Button 
                                                         Style="{StaticResource popUpButtonStyle}"
                                                         Command="{Binding DataContext.OpenFileInFolderCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
@@ -394,7 +416,22 @@
                                                         Style="{StaticResource peerEncryptionStatus}" />
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
-                                                        Text="{Binding BytesDownloaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Bytes downloaded: {0}}" />
+                                                        Text="{Binding BytesDownloaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Downloaded: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Download speed: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding BytesUploaded, Converter={StaticResource bytesToMegabytesConverter}, StringFormat={}Uploaded: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding UploadSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Upload speed: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Connect time: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding ConnectionDuration, Converter={StaticResource timeSpanConverter}, StringFormat={}Connection duration: {0}}" />
                                                     <Button 
                                                         Style="{StaticResource popUpButtonStyle}"
                                                         Command="{Binding DataContext.DisconnectFromServerCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"

@@ -16,6 +16,7 @@ namespace FileSharing.Models
         }
 
         public event EventHandler<EventArgs>? DownloadsListUpdated;
+        public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
 
         public Download this[string downloadID]
         {
@@ -42,15 +43,11 @@ namespace FileSharing.Models
                 if (_downloads.TryAdd(download.ID, download))
                 {
                     _downloads[download.ID].FileRemoved += OnFileRemoved;
+                    _downloads[download.ID].MissingSegmentsRequested += OnMissingFileSegmentsRequested;
 
                     DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
                 }
             }
-        }
-
-        private void OnFileRemoved(object? sender, EventArgs e)
-        {
-            DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void RemoveDownload(string downloadID)
@@ -62,35 +59,36 @@ namespace FileSharing.Models
                 {
                     removedDownload.ShutdownFile();
                     removedDownload.FileRemoved -= OnFileRemoved;
+                    removedDownload.MissingSegmentsRequested -= OnMissingFileSegmentsRequested;
 
                     DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
                 }
             }
         }
 
-        public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
+        private void OnFileRemoved(object? sender, EventArgs e)
         {
-            foreach (var download in _downloads.Values)
-            {
-                if (download.Path == downloadFilePath &&
-                    !download.IsDownloaded &&
-                    !download.IsCancelled &&
-                    !download.IsCorrupted)
-                {
-                    downloadID = download.ID;
-                    return true;
-                }
-            }
-
-            downloadID = "";
-            return false;
+            DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
-        public void ShutdownDownload(string downloadID)
+        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
         {
-            if (HasDownload(downloadID))
+            MissingSegmentsRequested?.Invoke(this, e);
+        }
+
+        public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
+        {
+            try
             {
-                _downloads[downloadID].ShutdownFile();
+                var download = _downloads.Values.First(target => target.Path == downloadFilePath && target.IsActive);
+                downloadID = download.ID;
+
+                return true;
+            }
+            catch (Exception)
+            {
+                downloadID = "";
+                return false;
             }
         }
 
@@ -104,7 +102,7 @@ namespace FileSharing.Models
 
         public void CancelAllDownloadsFromServer(int serverID)
         {
-            var downloadsFromServer = _downloads.Values.Where(download => download.Server.Id == serverID);
+            var downloadsFromServer = _downloads.Values.Where(download => download.Server.Peer.Id == serverID);
             foreach (var download in downloadsFromServer)
             {
                 download.Cancel();

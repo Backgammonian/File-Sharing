@@ -11,6 +11,7 @@
     <converters:IPEndPointConverter x:Key="ipEndPointConverter" />
     <converters:ProgressConverter x:Key="progressConverter" />
     <converters:TimeSpanConverter x:Key="timeSpanConverter" />
+    <converters:EncryptedPeerConverter x:Key="encryptedPeerConverter" />
 
     <SolidColorBrush x:Key="ServerColor" Color="LightGreen" Opacity="0.5"/>
     <SolidColorBrush x:Key="ClientColor" Color="Blue" Opacity="0.07"/>
@@ -38,12 +39,11 @@
     <Style x:Key="popUpTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
         <Setter Property="Visibility" Value="Collapsed"/>
         <Style.Triggers>
-            <DataTrigger 
-                Binding="{Binding RelativeSource={RelativeSource 
+            <DataTrigger Binding="{Binding RelativeSource={RelativeSource 
                     Mode=FindAncestor, 
                     AncestorType={x:Type ListBoxItem}},
                     Path=IsSelected}" 
-                Value="True">
+                    Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
         </Style.Triggers>
@@ -77,13 +77,13 @@
     </Style>
 
     <Style x:Key="peerEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
-        <Setter Property="Text" Value="No encryption?"/>
+        <Setter Property="Text" Value="❓ No encryption"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="True">
-                <Setter Property="Text" Value="Encrypted"/>
+                <Setter Property="Text" Value="🔒 Encrypted"/>
             </DataTrigger>
             <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="False">
-                <Setter Property="Text" Value="NOT encrypted"/>
+                <Setter Property="Text" Value="🔓 NOT encrypted"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -92,8 +92,7 @@
         <Setter Property="HorizontalAlignment" Value="Left"/>
         <Setter Property="Visibility" Value="Collapsed"/>
         <Style.Triggers>
-            <DataTrigger 
-                Binding="{Binding RelativeSource={RelativeSource 
+            <DataTrigger Binding="{Binding RelativeSource={RelativeSource 
                     Mode=FindAncestor, 
                     AncestorType={x:Type ListBoxItem}},
                     Path=IsSelected}" 
@@ -119,8 +118,7 @@
         <Setter Property="Visibility" Value="Collapsed"/>
         <Setter Property="IsEnabled" Value="True"/>
         <Style.Triggers>
-            <DataTrigger 
-                Binding="{Binding RelativeSource={RelativeSource 
+            <DataTrigger Binding="{Binding RelativeSource={RelativeSource 
                         Mode=FindAncestor, 
                         AncestorType={x:Type ListBoxItem}},
                         Path=IsSelected}" 
@@ -134,6 +132,51 @@
             <DataTrigger Binding="{Binding IsCancelled}" Value="True">
                 <Setter Property="Visibility" Value="Collapsed"/>
                 <Setter Property="IsEnabled" Value="False"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="hashVerificationButton" TargetType="Button" BasedOn="{StaticResource baseButtonStyle}">
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Setter Property="IsEnabled" Value="False"/>
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsDownloaded}" Value="True" />
+                    <Condition Binding="{Binding RelativeSource={RelativeSource 
+                        Mode=FindAncestor, 
+                        AncestorType={x:Type ListBoxItem}},
+                        Path=IsSelected}" 
+                        Value="True" />
+                </MultiDataTrigger.Conditions>
+                <MultiDataTrigger.Setters>
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Setter Property="IsEnabled" Value="True"/>
+                </MultiDataTrigger.Setters>
+            </MultiDataTrigger>
+
+            <DataTrigger Binding="{Binding IsHashVerificationStarted}" Value="True">
+                <Setter Property="IsEnabled" Value="False"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="hashVerificationStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+        <Setter Property="Text" Value="Hash verification in progress..."/>
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Setter Property="Foreground" Value="DarkBlue"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsHashVerificationStarted}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+
+            <DataTrigger Binding="{Binding IsHashVerificationResultPositive}" Value="True">
+                <Setter Property="Text" Value="Hash is correct! ✅"/>
+            </DataTrigger>
+
+            <DataTrigger Binding="{Binding IsHashVerificationResultNegative}" Value="True">
+                <Setter Property="Text" Value="Hash is NOT correct! ❎ Try download file again"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -160,21 +203,10 @@
     </Style>
 
     <Style x:Key="hashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource popUpTextBlock}">
-        <Setter Property="Text" Value="Calculating hash..."/>
+        <Setter Property="Text" Value="🔴 Calculating hash..."/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsHashCalculated}" Value="True">
                 <Setter Property="Text" Value="{Binding Hash, StringFormat={}SHA256 Hash: {0}}"/>
-            </DataTrigger>
-        </Style.Triggers>
-    </Style>
-
-    <Style x:Key="isFileCorrupted" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
-        <Setter Property="Text" Value="Error: file not found on local storage"/>
-        <Setter Property="Visibility" Value="Collapsed"/>
-        <Setter Property="Foreground" Value="Red" />
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding IsCorrupted}" Value="True">
-                <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>

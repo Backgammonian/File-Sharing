@@ -1,36 +1,29 @@
-﻿using LiteNetLib;
-
-namespace FileSharing.Models
+﻿namespace FileSharing.Models
 {
     public class FileInfo
     {
-        public FileInfo()
+        public FileInfo() //empty constructor for JSON deserializing, used in client
         {
-            Name = string.Empty;
+            Name = "";
             Size = 0;
-            Hash = string.Empty;
+            NumberOfSegments = 0;
+            Hash = "";
             Server = null;
         }
 
-        public FileInfo(string name, long size, string hash, NetPeer server)
-        {
-            Name = name;
-            Size = size;
-            Hash = hash;
-            Server = server;
-        }
-
-        public FileInfo(SharedFile sharedFile)
+        public FileInfo(SharedFile sharedFile) //used in server
         {
             Name = sharedFile.Name;
             Size = sharedFile.Size;
+            NumberOfSegments = sharedFile.NumberOfSegments;
             Hash = sharedFile.Hash;
             Server = null;
         }
 
         public string Name { get; set; }
         public long Size { get; set; }
+        public long NumberOfSegments { get; set; }
         public string Hash { get; set; }
-        public NetPeer? Server { get; set; }
+        public EncryptedPeer? Server { get; set; }
     }
 }

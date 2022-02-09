@@ -46,54 +46,126 @@ namespace FileSharing.Modules
             IsEnabled = true;
         }
 
-        public byte[] CreateSignature(byte[] data)
+        public bool TrySetKeys(byte[] publicKey, byte[] signaturePublicKey)
         {
-            var signingAlgorithm = new ECDsaCng(_signature);
-            var newSignature = signingAlgorithm.SignData(data);
-            signingAlgorithm.Clear();
+            try
+            {
+                _privateKey = _ecdh.DeriveKeyMaterial(CngKey.Import(publicKey, CngKeyBlobFormat.EccPublicBlob));
+                _recipientsSignaturePublicKey = (byte[])signaturePublicKey.Clone();
+                IsEnabled = true;
 
-            return newSignature;
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
-        public bool VerifySignature(byte[] data, byte[] signature)
+        public bool TryCreateSignature(byte[] data, out byte[] signature)
         {
-            using var key = CngKey.Import(_recipientsSignaturePublicKey, CngKeyBlobFormat.GenericPublicBlob);
-            var signingAlgorithm = new ECDsaCng(key);
-            var result = signingAlgorithm.VerifyData(data, signature);
-            signingAlgorithm.Clear();
+            try
+            {
+                var signingAlgorithm = new ECDsaCng(_signature);
+                signature = signingAlgorithm.SignData(data);
+                signingAlgorithm.Clear();
 
-            return result;
+                return true;
+            }
+            catch (Exception)
+            {
+                signature = Array.Empty<byte>();
+
+                return false;
+            }
         }
 
-        public void Encrypt(byte[] secretMessage, out byte[] encryptedMessage, out byte[] iv)
+        public bool TryVerifySignature(byte[] data, byte[] signature)
         {
-            using Aes aes = new AesCryptoServiceProvider();
-            aes.Key = _privateKey;
-            iv = aes.IV;
-            using var cipherText = new MemoryStream();
-            using var cryptoStream = new CryptoStream(cipherText, aes.CreateEncryptor(), CryptoStreamMode.Write);
-            cryptoStream.Write(secretMessage, 0, secretMessage.Length);
-            cryptoStream.Close();
+            try
+            {
+                using var key = CngKey.Import(_recipientsSignaturePublicKey, CngKeyBlobFormat.GenericPublicBlob);
+                var signingAlgorithm = new ECDsaCng(key);
+                var result = signingAlgorithm.VerifyData(data, signature);
+                signingAlgorithm.Clear();
 
-            encryptedMessage = cipherText.ToArray();
+                return result;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
-        public byte[] Decrypt(byte[] encryptedMessage, byte[] iv)
+        public bool TryEncrypt(byte[] secretMessage, out byte[] encryptedMessage, out byte[] iv)
         {
-            using Aes aes = new AesCryptoServiceProvider();
-            aes.Key = _privateKey;
-            aes.IV = iv;
-            using var plainText = new MemoryStream();
-            using var cryptoStream = new CryptoStream(plainText, aes.CreateDecryptor(), CryptoStreamMode.Write);
-            cryptoStream.Write(encryptedMessage, 0, encryptedMessage.Length);
-            cryptoStream.Close();
+            try
+            {
+                using Aes aes = new AesCryptoServiceProvider();
+                aes.Key = _privateKey;
+                iv = aes.IV;
+                using var cipherText = new MemoryStream();
+                using var cryptoStream = new CryptoStream(cipherText, aes.CreateEncryptor(), CryptoStreamMode.Write);
+                cryptoStream.Write(secretMessage, 0, secretMessage.Length);
+                cryptoStream.Close();
+                encryptedMessage = cipherText.ToArray();
 
-            return plainText.ToArray();
+                return true;
+            }
+            catch (Exception)
+            {
+                iv = Array.Empty<byte>();
+                encryptedMessage = Array.Empty<byte>();
+
+                return false;
+            }
+        }
+
+        public bool TryDecrypt(byte[] encryptedMessage, byte[] iv, out byte[] decryptedMessage)
+        {
+            try
+            {
+                using Aes aes = new AesCryptoServiceProvider();
+                aes.Key = _privateKey;
+                aes.IV = iv;
+                using var decryptionStream = new MemoryStream();
+                using var cryptoStream = new CryptoStream(decryptionStream, aes.CreateDecryptor(), CryptoStreamMode.Write);
+                cryptoStream.Write(encryptedMessage, 0, encryptedMessage.Length);
+                cryptoStream.Close();
+                decryptedMessage = decryptionStream.ToArray();
+
+                return true;
+            }
+            catch (Exception)
+            {
+                decryptedMessage = Array.Empty<byte>();
+
+                return false;
+            }
         }
 
         public void Disable()
         {
             IsEnabled = false;
+        }
+
+        public static bool TryComputeFileHash(string path, out string fileHash)
+        {
+            try
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 10 * 1024 * 1024);
+                using var sha = SHA256.Create();
+                byte[] hash = sha.ComputeHash(fs);
+                fileHash = BitConverter.ToString(hash).ToLower().Replace("-", "");
+
+                return true;
+            }
+            catch (Exception)
+            {
+                fileHash = "";
+
+                return false;
+            }
         }
     }
 }

@@ -9,7 +9,9 @@
             _currentIndex = -1;
         }
 
-        public long GetIndex()
+        public long CurrentIndex => _currentIndex;
+
+        public long GetNewIndex()
         {
             _currentIndex += 1;
             _currentIndex = _currentIndex == long.MaxValue ? 0 : _currentIndex;

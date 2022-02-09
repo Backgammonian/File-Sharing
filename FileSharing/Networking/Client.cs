@@ -15,40 +15,41 @@ namespace FileSharing.Networking
         private readonly EventBasedNetListener _listener;
         private readonly XorEncryptLayer _xor;
         private readonly NetManager _client;
-        private readonly CryptoPeers _servers;
+        private readonly EncryptedPeers _servers;
         private readonly List<string> _expectedPeers; //IP:port
-        private Task _listenTask;
-        private CancellationTokenSource _tokenSource;
+        private readonly Task _listenTask;
+        private readonly CancellationTokenSource _tokenSource;
 
         public Client()
         {
             _listener = new EventBasedNetListener();
             _xor = new XorEncryptLayer("VerySecretSymmetricXorPassword");
-            _client = new NetManager(_listener, _xor)
-            {
-                ChannelsCount = 8
-            };
-            _servers = new CryptoPeers();
+            _client = new NetManager(_listener, _xor);
+            _client.ChannelsCount = Constants.ChannelsCount;
+            _servers = new EncryptedPeers();
             _servers.PeerAdded += OnServerAdded;
             _servers.PeerRemoved += OnServerRemoved;
             _expectedPeers = new List<string>();
+            _tokenSource = new CancellationTokenSource();
+            var token = _tokenSource.Token;
+            _listenTask = new Task(() => Run(token));
         }
 
         public event EventHandler<NetEventArgs>? MessageReceived;
-        public event EventHandler<CryptoPeerEventArgs>? ServerAdded;
-        public event EventHandler<CryptoPeerEventArgs>? ServerConnected;
-        public event EventHandler<CryptoPeerEventArgs>? ServerRemoved;
+        public event EventHandler<EncryptedPeerEventArgs>? ServerAdded;
+        public event EventHandler<EncryptedPeerEventArgs>? ServerConnected;
+        public event EventHandler<EncryptedPeerEventArgs>? ServerRemoved;
 
         public int LocalPort => _client.LocalPort;
         public byte ChannelsCount => _client.ChannelsCount;
-        public IEnumerable<CryptoPeer> Servers => _servers.List;
+        public IEnumerable<EncryptedPeer> Servers => _servers.List;
 
-        private void OnServerAdded(object? sender, CryptoPeerEventArgs e)
+        private void OnServerAdded(object? sender, EncryptedPeerEventArgs e)
         {
             ServerAdded?.Invoke(this, e);
         }
 
-        private void OnServerRemoved(object? sender, CryptoPeerEventArgs e)
+        private void OnServerRemoved(object? sender, EncryptedPeerEventArgs e)
         {
             ServerRemoved?.Invoke(this, e);
         }
@@ -62,7 +63,7 @@ namespace FileSharing.Networking
             }
         }
 
-        public bool IsConnectedToServer(int serverID, out CryptoPeer? server)
+        public bool IsConnectedToServer(int serverID, out EncryptedPeer? server)
         {
             if (_servers.Has(serverID) &&
                 _servers[serverID].IsSecurityEnabled)
@@ -75,7 +76,7 @@ namespace FileSharing.Networking
             return false;
         }
 
-        public CryptoPeer? GetServerByID(int serverID)
+        public EncryptedPeer? GetServerByID(int serverID)
         {
             if (_servers.Has(serverID))
             {
@@ -91,7 +92,7 @@ namespace FileSharing.Networking
             _client.Stop();
         }
 
-        public void DisconnectFromServer(CryptoPeer server)
+        public void DisconnectFromServer(EncryptedPeer server)
         {
             server.Disconnect();
             _servers.Remove(server.Peer.Id);
@@ -129,7 +130,7 @@ namespace FileSharing.Networking
 
                     _expectedPeers.Remove(peer.EndPoint.ToString());
 
-                    var server = new CryptoPeer(peer);
+                    var server = new EncryptedPeer(peer);
                     _servers.Add(server);
                     _servers[server.Peer.Id].SendPublicKeys();
                 }
@@ -176,34 +177,31 @@ namespace FileSharing.Networking
                 {
                     Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Trying to get keys from server " + fromPeer.EndPoint);
 
-                    try
+                    if (dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
+                        dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                     {
-                        var publicKey = new byte[dataReader.GetInt()];
-                        dataReader.GetBytes(publicKey, publicKey.Length);
-                        var signaturePublicKey = new byte[dataReader.GetInt()];
-                        dataReader.GetBytes(signaturePublicKey, signaturePublicKey.Length);
                         _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
 
                         Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + fromPeer.EndPoint);
 
-                        ServerConnected?.Invoke(this, new CryptoPeerEventArgs(fromPeer.Id));
+                        ServerConnected?.Invoke(this, new EncryptedPeerEventArgs(fromPeer.Id));
                     }
-                    catch (Exception e)
+                    else
                     {
-                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys_Error) Couldn't get keys from message. " + e);
+                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys_Error) Couldn't get keys from server " + fromPeer.EndPoint);
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("(Client_NetworkReceiveEvent) Unknown error with peer " + fromPeer.EndPoint);
+                    Debug.WriteLine("(Client_NetworkReceiveEvent) Unknown error with peer " +
+                        fromPeer.EndPoint + " " +
+                        "Server connected: " + _servers.Has(fromPeer.Id) + " " +
+                        (_servers.Has(fromPeer.Id) ? "Security: " + _servers[fromPeer.Id].IsSecurityEnabled : "no security"));
                 }
 
                 dataReader.Recycle();
             };
 
-            _tokenSource = new CancellationTokenSource();
-            var token = _tokenSource.Token;
-            _listenTask = new Task(() => Run(token));
             _listenTask.Start();
         }
     }

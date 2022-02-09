@@ -8,23 +8,23 @@ using System.Net;
 
 namespace FileSharing.Models
 {
-    public class CryptoPeers : IEnumerable<CryptoPeer>
+    public class EncryptedPeers : IEnumerable<EncryptedPeer>
     {
-        private readonly ConcurrentDictionary<int, CryptoPeer> _cryptoPeers;
+        private readonly ConcurrentDictionary<int, EncryptedPeer> _cryptoPeers;
 
-        public CryptoPeers()
+        public EncryptedPeers()
         {
-            _cryptoPeers = new ConcurrentDictionary<int, CryptoPeer>();
+            _cryptoPeers = new ConcurrentDictionary<int, EncryptedPeer>();
         }
 
-        public event EventHandler<CryptoPeerEventArgs>? PeerAdded;
-        public event EventHandler<CryptoPeerEventArgs>? PeerRemoved;
+        public event EventHandler<EncryptedPeerEventArgs>? PeerAdded;
+        public event EventHandler<EncryptedPeerEventArgs>? PeerRemoved;
 
-        public IEnumerable<CryptoPeer> List => _cryptoPeers.Values;
-        public IEnumerable<CryptoPeer> EstablishedList =>
+        public IEnumerable<EncryptedPeer> List => _cryptoPeers.Values;
+        public IEnumerable<EncryptedPeer> EstablishedList =>
             _cryptoPeers.Values.Where(cryptoPeer => cryptoPeer.IsSecurityEnabled);
 
-        public CryptoPeer this[int peerId]
+        public EncryptedPeer this[int peerId]
         {
             get => _cryptoPeers[peerId];
             private set => _cryptoPeers[peerId] = value;
@@ -35,7 +35,7 @@ namespace FileSharing.Models
             return _cryptoPeers.ContainsKey(peerId);
         }
 
-        public bool Has(CryptoPeer cryptoPeer)
+        public bool Has(EncryptedPeer cryptoPeer)
         {
             return _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
         }
@@ -47,7 +47,7 @@ namespace FileSharing.Models
                 cryptoPeer.Peer.EndPoint.Port == endPoint.Port);
         }
 
-        public void Add(CryptoPeer cryptoPeer)
+        public void Add(EncryptedPeer cryptoPeer)
         {
             if (!Has(cryptoPeer.Peer.Id))
             {
@@ -57,7 +57,7 @@ namespace FileSharing.Models
 
                     _cryptoPeers[cryptoPeer.Peer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
 
-                    PeerAdded?.Invoke(this, new CryptoPeerEventArgs(cryptoPeer.Peer.Id));
+                    PeerAdded?.Invoke(this, new EncryptedPeerEventArgs(cryptoPeer.Peer.Id));
                 }
             }
         }
@@ -66,22 +66,22 @@ namespace FileSharing.Models
         {
             if (Has(peerID))
             {
-                if (_cryptoPeers.TryRemove(peerID, out CryptoPeer? removedPeer) &&
+                if (_cryptoPeers.TryRemove(peerID, out EncryptedPeer? removedPeer) &&
                     removedPeer != null)
                 {
                     removedPeer.PeerDisconnected -= OnCryptoPeerDisconnected;
 
-                    PeerRemoved?.Invoke(this, new CryptoPeerEventArgs(peerID));
+                    PeerRemoved?.Invoke(this, new EncryptedPeerEventArgs(peerID));
                 }
             }
         }
 
-        private void OnCryptoPeerDisconnected(object? sender, CryptoPeerEventArgs e)
+        private void OnCryptoPeerDisconnected(object? sender, EncryptedPeerEventArgs e)
         {
             PeerRemoved?.Invoke(this, e);
         }
 
-        public IEnumerator<CryptoPeer> GetEnumerator()
+        public IEnumerator<EncryptedPeer> GetEnumerator()
         {
             return _cryptoPeers.Values.GetEnumerator();
         }

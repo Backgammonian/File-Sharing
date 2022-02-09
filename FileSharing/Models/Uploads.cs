@@ -36,8 +36,6 @@ namespace FileSharing.Models
         {
             if (_uploads.TryAdd(upload.ID, upload))
             {
-                _uploads[upload.ID].UploadFinished += OnUploadFinished;
-
                 UploadAdded?.Invoke(this, new UploadEventArgs(upload.ID));
             }
         }
@@ -47,7 +45,6 @@ namespace FileSharing.Models
             if (_uploads.TryRemove(id, out Upload? removedUpload) &&
                 removedUpload != null)
             {
-                removedUpload.UploadFinished -= OnUploadFinished;
                 removedUpload.Cancel();
 
                 UploadRemoved?.Invoke(this, new UploadEventArgs(removedUpload.ID));
@@ -69,11 +66,6 @@ namespace FileSharing.Models
             return _uploads.Values.
                 Where(upload => upload.FileHash == fileHash).
                 ToList();
-        }
-
-        private void OnUploadFinished(object? sender, UploadEventArgs e)
-        {
-            Debug.WriteLine("(Uploads_OnUploadFinished) Upload " + e.UploadID + " of file: " + _uploads[e.UploadID].FileName + " has finished!");
         }
     }
 }

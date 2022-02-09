@@ -1,23 +1,20 @@
 ﻿using System;
+using System.Diagnostics;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 
 namespace FileSharing.Models
 {
     public class Upload : ObservableObject
     {
-        private string _id;
-        private string _fileName;
-        private long _fileSize;
-        private string _fileHash;
-        private CryptoPeer _destination;
-        private long _numberOfSegments;
         private long _numberOfAckedSegments;
         private bool _isFinished;
         private bool _isCancelled;
         private DateTime _startTime;
         private DateTime _finishTime;
+        private long _bytesSent;
+        private bool[] _fileSegmentsCheck;
 
-        public Upload(string id, string fileName, long fileSize, string fileHash, CryptoPeer destination, long numberOfSegments)
+        public Upload(string id, string fileName, long fileSize, string fileHash, EncryptedPeer destination, long numberOfSegments)
         {
             ID = id;
             FileName = fileName;
@@ -25,50 +22,26 @@ namespace FileSharing.Models
             FileHash = fileHash;
             Destination = destination;
             NumberOfSegments = numberOfSegments;
-            NumberOfAckedSegments = 0;
+            NumberOfAckedSegments = Constants.ChannelsCount - 1;
             IsFinished = false;
             IsCancelled = false;
             StartTime = DateTime.Now;
+            BytesSent = 0;
+
+            _fileSegmentsCheck = new bool[NumberOfSegments];
+            for (long i = 0; i < _fileSegmentsCheck.LongLength; i++)
+            {
+                _fileSegmentsCheck[i] = false;
+            }
         }
 
-        public event EventHandler<UploadEventArgs>? UploadFinished;
+        public string ID { get; }
+        public string FileName { get; }
+        public long FileSize { get; }
+        public string FileHash { get; }
+        public EncryptedPeer Destination { get; }
+        public long NumberOfSegments { get; }
 
-        public string ID
-        {
-            get => _id;
-            private set => SetProperty(ref _id, value);
-        }
-
-        public string FileName
-        {
-            get => _fileName;
-            private set => SetProperty(ref _fileName, value);
-        }
-
-        public long FileSize
-        {
-            get => _fileSize;
-            private set => SetProperty(ref _fileSize, value);
-        }
-
-        public string FileHash
-        {
-            get => _fileHash;
-            private set => SetProperty(ref _fileHash, value);
-        }
-        
-        public CryptoPeer Destination
-        {
-            get => _destination;
-            private set => SetProperty(ref _destination, value);
-        }
-
-        public long NumberOfSegments
-        {
-            get => _numberOfSegments;
-            private set => SetProperty(ref _numberOfSegments, value);
-        }
-        
         public long NumberOfAckedSegments
         {
             get => _numberOfAckedSegments;
@@ -103,22 +76,50 @@ namespace FileSharing.Models
             private set => SetProperty(ref _finishTime, value);
         }
 
-        public decimal Progress => NumberOfAckedSegments / Convert.ToDecimal(NumberOfSegments);
-
-        public void AddAck()
+        public long BytesSent
         {
-            if (IsCancelled || IsFinished || (NumberOfAckedSegments == NumberOfSegments))
+            get => _bytesSent;
+            private set
+            {
+                SetProperty(ref _bytesSent, value);
+                OnPropertyChanged(nameof(AverageSpeed));
+            }
+        }
+
+        public bool IsActive => !IsCancelled && !IsFinished;
+        public decimal Progress => NumberOfAckedSegments / Convert.ToDecimal(NumberOfSegments);
+        public double AverageSpeed => BytesSent / (DateTime.Now - StartTime).TotalSeconds;
+
+        public void AddAck(long numOfSegment)
+        {
+            if (!IsActive)
             {
                 return;
             }
 
+            if (numOfSegment < 0 ||
+                numOfSegment >= NumberOfSegments)
+            {
+                Debug.WriteLine("(Upload_AddAck) File " + FileName + ": wrong number of incoming file segment!");
+
+                return;
+            }
+
+            if (_fileSegmentsCheck[numOfSegment])
+            {
+                Debug.WriteLine("(Upload_AddAck) File " + FileName + ": already sent segment " + numOfSegment + "!");
+
+                return;
+            }
+
+            _fileSegmentsCheck[numOfSegment] = true;
             NumberOfAckedSegments += 1;
+            BytesSent += Constants.FileSegmentSize;
+
             if (NumberOfAckedSegments == NumberOfSegments)
             {
                 IsFinished = true;
                 FinishTime = DateTime.Now;
-
-                UploadFinished?.Invoke(this, new UploadEventArgs(ID));
             }
         }
 

@@ -15,38 +15,38 @@ namespace FileSharing.Networking
         private readonly EventBasedNetListener _listener;
         private readonly XorEncryptLayer _xor;
         private readonly NetManager _server;
-        private readonly CryptoPeers _clients;
-        private int _port;
-        private Task _listenTask;
-        private CancellationTokenSource _tokenSource;
+        private readonly EncryptedPeers _clients;
+        private readonly Task _listenTask;
+        private readonly CancellationTokenSource _tokenSource;
 
         public Server()
         {
             _listener = new EventBasedNetListener();
             _xor = new XorEncryptLayer("VerySecretSymmetricXorPassword");
-            _server = new NetManager(_listener, _xor)
-            {
-                ChannelsCount = 8
-            };
-            _clients = new CryptoPeers();
+            _server = new NetManager(_listener, _xor);
+            _server.ChannelsCount = Constants.ChannelsCount;
+            _clients = new EncryptedPeers();
             _clients.PeerAdded += OnClientAdded;
             _clients.PeerRemoved += OnClientRemoved;
+            _tokenSource = new CancellationTokenSource();
+            var token = _tokenSource.Token;
+            _listenTask = new Task(() => Run(token));
         }
 
         public event EventHandler<NetEventArgs>? MessageReceived;
-        public event EventHandler<CryptoPeerEventArgs>? ClientAdded;
-        public event EventHandler<CryptoPeerEventArgs>? ClientRemoved;
+        public event EventHandler<EncryptedPeerEventArgs>? ClientAdded;
+        public event EventHandler<EncryptedPeerEventArgs>? ClientRemoved;
 
         public int LocalPort => _server.LocalPort;
         public byte ChannelsCount => _server.ChannelsCount;
-        public IEnumerable<CryptoPeer> Clients => _clients.List;
+        public IEnumerable<EncryptedPeer> Clients => _clients.List;
 
-        private void OnClientAdded(object? sender, CryptoPeerEventArgs e)
+        private void OnClientAdded(object? sender, EncryptedPeerEventArgs e)
         {
             ClientAdded?.Invoke(this, e);
         }
 
-        private void OnClientRemoved(object? sender, CryptoPeerEventArgs e)
+        private void OnClientRemoved(object? sender, EncryptedPeerEventArgs e)
         {
             ClientRemoved?.Invoke(this, e);
         }
@@ -60,7 +60,7 @@ namespace FileSharing.Networking
             }
         }
 
-        public CryptoPeer? GetClientByID(int clientID)
+        public EncryptedPeer? GetClientByID(int clientID)
         {
             if (_clients.Has(clientID))
             {
@@ -85,14 +85,13 @@ namespace FileSharing.Networking
         {
             foreach (var client in _clients.EstablishedList)
             {
-                client.SendEncrypted(message);
+                client.SendEncrypted(message, 0);
             }
         }
 
         public void StartListening(int port)
         {
-            _port = port;
-            _server.Start(_port);
+            _server.Start(port);
 
             _listener.ConnectionRequestEvent += request => request.AcceptIfKey("ToFileServer");
 
@@ -100,17 +99,17 @@ namespace FileSharing.Networking
             {
                 Debug.WriteLine("(Server_PeerConnectedEvent) New connection: {0}", peer.EndPoint);
 
-                var client = new CryptoPeer(peer);
+                var client = new EncryptedPeer(peer);
                 _clients.Add(client);
             };
 
             _listener.PeerDisconnectedEvent += (peer, disconnectInfo) =>
             {
+                _clients.Remove(peer.Id);
+
                 Debug.WriteLine("(Server_PeerDisconnectedEvent) Peer {0} disconnected, info: {1}",
                     peer.EndPoint,
                     disconnectInfo.Reason);
-
-                _clients.Remove(peer.Id);
             };
 
             _listener.NetworkReceiveEvent += (fromPeer, dataReader, deliveryMethod) =>
@@ -137,36 +136,32 @@ namespace FileSharing.Networking
                 else
                 if (!_clients[fromPeer.Id].IsSecurityEnabled)
                 {
-                    Debug.WriteLine("(Server_NetworkReceiveEvent_Keys) Trying to get keys from client " + fromPeer.EndPoint);
+                    Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Trying to get keys from server " + fromPeer.EndPoint);
 
-                    try
+                    if (dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
+                        dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                     {
-                        var publicKey = new byte[dataReader.GetInt()];
-                        dataReader.GetBytes(publicKey, publicKey.Length);
-                        var signaturePublicKey = new byte[dataReader.GetInt()];
-                        dataReader.GetBytes(signaturePublicKey, signaturePublicKey.Length);
                         _clients[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
-
                         _clients[fromPeer.Id].SendPublicKeys();
 
-                        Debug.WriteLine("(Server_NetworkReceiveEvent_Keys) Received keys from client " + fromPeer.EndPoint);
+                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + fromPeer.EndPoint);
                     }
-                    catch (Exception e)
+                    else
                     {
-                        Debug.WriteLine("(Server_NetworkReceiveEvent_Keys_Error) Couldn't get keys from message: " + e);
+                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys_Error) Couldn't get keys from client " + fromPeer.EndPoint);
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("(Server_NetworkReceiveEvent) Unknown error with peer: " + fromPeer.EndPoint);
+                    Debug.WriteLine("(Client_NetworkReceiveEvent) Unknown error with peer " +
+                        fromPeer.EndPoint + " " +
+                        "Client connected: " + _clients.Has(fromPeer.Id) + " " +
+                        (_clients.Has(fromPeer.Id) ? "Security: " + _clients[fromPeer.Id].IsSecurityEnabled : "no security"));
                 }
 
                 dataReader.Recycle();
             };
 
-            _tokenSource = new CancellationTokenSource();
-            var token = _tokenSource.Token;
-            _listenTask = new Task(() => Run(token));
             _listenTask.Start();
         }
     }

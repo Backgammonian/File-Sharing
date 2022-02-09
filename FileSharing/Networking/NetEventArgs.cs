@@ -7,9 +7,9 @@ namespace FileSharing.Networking
     public class NetEventArgs : EventArgs
     {
         public NetDataReader Message { get; set; }
-        public CryptoPeer CryptoPeer { get; set; }
+        public EncryptedPeer CryptoPeer { get; set; }
 
-        public NetEventArgs(CryptoPeer cryptoPeer, NetDataReader message)
+        public NetEventArgs(EncryptedPeer cryptoPeer, NetDataReader message)
         {
             Message = message;
             CryptoPeer = cryptoPeer;

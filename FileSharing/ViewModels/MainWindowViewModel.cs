@@ -8,6 +8,8 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Threading;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using Microsoft.Toolkit.Mvvm.Input;
 using Microsoft.WindowsAPICodePack.Dialogs;
@@ -53,13 +55,15 @@ namespace FileSharing.ViewModels
             _availableFiles.FilesUpdated += OnAvailableFilesListUpdated;
             _downloads = new Downloads();
             _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
+            _downloads.MissingSegmentsRequested += OnMissingFileSegmentsRequested;
 
             //client-side commands
             ConnectToServerCommand = new RelayCommand(ConnectToServer);
             DownloadFileCommand = new RelayCommand<FileInfo>(DownloadFile);
             CancelDownloadCommand = new RelayCommand<Download>(CancelDownload);
             OpenFileInFolderCommand = new RelayCommand<Download>(OpenFileInFolder);
-            DisconnectFromServerCommand = new RelayCommand<CryptoPeer>(DisconnectFromServer);
+            DisconnectFromServerCommand = new RelayCommand<EncryptedPeer>(DisconnectFromServer);
+            VerifyFileHashCommand = new RelayCommand<Download>(VerifyFileHash);
 
             //server-side structures
             _server = new Server();
@@ -69,6 +73,7 @@ namespace FileSharing.ViewModels
             _sharedFiles = new SharedFiles();
             _sharedFiles.SharedFileAdded += OnSharedFileAdded;
             _sharedFiles.SharedFileHashCalculated += OnSharedFileHashCalculated;
+            _sharedFiles.SharedFileError += OnSharedFileError;
             _sharedFiles.SharedFileRemoved += OnSharedFileRemoved;
             _uploads = new Uploads();
             _uploads.UploadAdded += OnUploadAdded;
@@ -148,43 +153,44 @@ namespace FileSharing.ViewModels
         public ICommand RemoveSharedFileCommand { get; }
         public ICommand AddFileCommand { get; }
         public ICommand ShowLocalPortCommand { get; }
+        public ICommand VerifyFileHashCommand { get; }
         public ObservableCollection<FileInfo> AvailableFiles => new ObservableCollection<FileInfo>(_availableFiles.List);
         public ObservableCollection<Download> Downloads => new ObservableCollection<Download>(_downloads.DownloadsList);
-        public ObservableCollection<CryptoPeer> Servers => new ObservableCollection<CryptoPeer>(_client.Servers);
+        public ObservableCollection<EncryptedPeer> Servers => new ObservableCollection<EncryptedPeer>(_client.Servers);
         public ObservableCollection<SharedFile> SharedFiles => new ObservableCollection<SharedFile>(_sharedFiles.SharedFilesList);
         public ObservableCollection<Upload> Uploads => new ObservableCollection<Upload>(_uploads.UploadsList);
-        public ObservableCollection<CryptoPeer> Clients => new ObservableCollection<CryptoPeer>(_server.Clients);
+        public ObservableCollection<EncryptedPeer> Clients => new ObservableCollection<EncryptedPeer>(_server.Clients);
         public FileInfo? SelectedAvailableFile { get; set; }
         public Download? SelectedDownload { get; set; }
-        public CryptoPeer? SelectedServer { get; set; }
+        public EncryptedPeer? SelectedServer { get; set; }
         public SharedFile? SelectedSharedFile { get; set; }
         #endregion
 
         #region Client & Server event handlers
-        private void OnServerAdded(object? sender, CryptoPeerEventArgs e)
+        private void OnServerAdded(object? sender, EncryptedPeerEventArgs e)
         {
             var server = _client.GetServerByID(e.PeerID);
             if (server != null)
             {
-                Debug.WriteLine("Adding files list of server " + server.Peer.EndPoint);
+                Debug.WriteLine("(OnServerAdded) Adding files list of server " + server.Peer.EndPoint);
 
-                _availableFiles.AddServer(server.Peer);
+                _availableFiles.AddServer(server);
                 OnPropertyChanged(nameof(Servers));
             }
         }
 
-        private void OnServerConnected(object? sender, CryptoPeerEventArgs e)
+        private void OnServerConnected(object? sender, EncryptedPeerEventArgs e)
         {
             var server = _client.GetServerByID(e.PeerID);
             if (server != null)
             {
-                Debug.WriteLine("Requesting files list from server " + server.Peer.EndPoint);
+                Debug.WriteLine("(OnServerConnected) Requesting files list from server " + server.Peer.EndPoint);
 
                 SendFilesListRequest(server);
             }
         }
 
-        private void OnServerRemoved(object? sender, CryptoPeerEventArgs e)
+        private void OnServerRemoved(object? sender, EncryptedPeerEventArgs e)
         {
             _downloads.CancelAllDownloadsFromServer(e.PeerID);
             _availableFiles.RemoveServer(e.PeerID);
@@ -201,12 +207,17 @@ namespace FileSharing.ViewModels
             OnPropertyChanged(nameof(Downloads));
         }
 
-        private void OnClientAdded(object? sender, CryptoPeerEventArgs e)
+        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
+        {
+            RequestMissingFileSegments(e);
+        }
+
+        private void OnClientAdded(object? sender, EncryptedPeerEventArgs e)
         {
             OnPropertyChanged(nameof(Clients));
         }
 
-        private void OnClientRemoved(object? sender, CryptoPeerEventArgs e)
+        private void OnClientRemoved(object? sender, EncryptedPeerEventArgs e)
         {
             _uploads.CancelAllUploadsOfPeer(e.PeerID);
             OnPropertyChanged(nameof(Clients));
@@ -220,6 +231,17 @@ namespace FileSharing.ViewModels
         private void OnSharedFileHashCalculated(object? sender, EventArgs e)
         {
             SendFilesListToAllClients();
+        }
+
+        private void OnSharedFileError(object? sender, SharedFileEventArgs e)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                MessageBox.Show("Couldn't add file to share: " + e.Path, 
+                    "File sharing error", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Error);
+            }));
         }
 
         private void OnSharedFileRemoved(object? sender, EventArgs e)
@@ -243,7 +265,14 @@ namespace FileSharing.ViewModels
             var reader = e.Message;
             var server = e.CryptoPeer;
 
-            if (!TryParseType(reader.GetByte(), out NetMessageType type))
+            byte typeByte = 0;
+            if (!reader.TryGetByte(out typeByte))
+            {
+                return;
+            }
+
+            var type = NetMessageType.None;
+            if (!TryParseType(typeByte, out type))
             {
                 return;
             }
@@ -254,10 +283,15 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Client_ProcessIncomingMessage) Files List");
 
-                    var receivedCrc = reader.GetUInt();
-                    var jsonFilesList = reader.GetString();
-
-                    ReceiveFilesList(server, receivedCrc, jsonFilesList);
+                    if (reader.TryGetUInt(out uint receivedCrc) &&
+                        reader.TryGetString(out string jsonFilesList))
+                    {
+                        ReceiveFilesList(server, receivedCrc, jsonFilesList);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get Files List");
+                    }
                 }
                 break;
 
@@ -265,13 +299,37 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Client_ProcessIncomingMessage) File Segment");
 
-                    var downloadID = reader.GetString(20);
-                    var numOfSegment = reader.GetLong();
-                    var receivedCrc = reader.GetUInt();
-                    var segment = new byte[reader.GetInt()];
-                    reader.GetBytes(segment, segment.Length);
+                    if (reader.TryGetString(out string downloadID) &&
+                        reader.TryGetLong(out long numOfSegment) &&
+                        reader.TryGetUInt(out uint receivedCrc) &&
+                        reader.TryGetBytesWithLength(out byte[] segment) &&
+                        reader.TryGetByte(out byte channel))
+                    {
+                        ReceiveFileSegment(server, downloadID, numOfSegment, receivedCrc, segment, channel);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Segment");
+                    }
+                }
+                break;
 
-                    ReceiveFileSegment(server, downloadID, numOfSegment, receivedCrc, segment);
+                case NetMessageType.ResendFileSegment:
+                {
+                    Debug.WriteLine("(Client_ProcessIncomingMessage) Resend File Segment");
+
+                    if (reader.TryGetString(out string downloadID) &&
+                        reader.TryGetLong(out long numOfSegment) &&
+                        reader.TryGetUInt(out uint receivedCrc) &&
+                        reader.TryGetBytesWithLength(out byte[] segment) &&
+                        reader.TryGetByte(out byte channel))
+                    {
+                        ReceiveResendedFileSegment(server, downloadID, numOfSegment, receivedCrc, segment, channel);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Segment");
+                    }
                 }
                 break;
 
@@ -279,9 +337,14 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Client_ProcessIncomingMessage) Cancel Download");
 
-                    var downloadID = reader.GetString(20);
-
-                    ReceiveDownloadCancellation(server, downloadID);
+                    if (reader.TryGetString(out string downloadID))
+                    {
+                        ReceiveDownloadCancellation(server, downloadID);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get Cancel Download");
+                    }
                 }
                 break;
 
@@ -296,7 +359,14 @@ namespace FileSharing.ViewModels
             var reader = e.Message;
             var client = e.CryptoPeer;
 
-            if (!TryParseType(reader.GetByte(), out NetMessageType type))
+            byte typeByte = 0;
+            if (!reader.TryGetByte(out typeByte))
+            {
+                return;
+            }
+
+            var type = NetMessageType.None;
+            if (!TryParseType(typeByte, out type))
             {
                 return;
             }
@@ -315,10 +385,15 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Server_ProcessIncomingMessage) File Request");
 
-                    var fileHash = reader.GetString(64);
-                    var uploadID = reader.GetString(20);
-
-                    StartSendingFileToClient(client, fileHash, uploadID);
+                    if (reader.TryGetString(out string fileHash) &&
+                        reader.TryGetString(out string uploadID))
+                    {
+                        StartSendingFileToClient(client, fileHash, uploadID);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Request");
+                    }
                 }
                 break;
 
@@ -326,10 +401,34 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Server_ProcessIncomingMessage) File Segment");
 
-                    var uploadID = reader.GetString(20);
-                    var numOfSegment = reader.GetLong();
+                    if (reader.TryGetString(out string uploadID) &&
+                        reader.TryGetLong(out long numOfSegment) &&
+                        reader.TryGetByte(out byte channel))
+                    {
+                        SendFileSegmentToClient(client, channel, uploadID, numOfSegment);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Segment");
+                    }
+                }
+                break;
 
-                    SendFileSegmentToClient(client, uploadID, numOfSegment);
+                case NetMessageType.ResendFileSegment:
+                {
+                    Debug.WriteLine("(Server_ProcessIncomingMessage) Resend File Segment");
+
+                    if (reader.TryGetString(out string uploadID) &&
+                        reader.TryGetString(out string fileHash) &&
+                        reader.TryGetLong(out long numOfSegment) &&
+                        reader.TryGetByte(out byte channel))
+                    {
+                        ResendFileSegmentToClient(client, channel, uploadID, fileHash, numOfSegment);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Segment");
+                    }
                 }
                 break;
 
@@ -337,9 +436,16 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Server_ProcessIncomingMessage) File Segment Ack");
 
-                    var uploadID = reader.GetString(20);
-
-                    ReceiveAckFromClient(client, uploadID);
+                    if (reader.TryGetString(out string uploadID) &&
+                        reader.TryGetLong(out long numOfSegment) &&
+                        reader.TryGetByte(out byte channel))
+                    {
+                        ReceiveAckFromClient(client, uploadID, numOfSegment, channel);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Server_ProcessIncomingMessage) Failed to receive File Segment Ack");
+                    }
                 }
                 break;
 
@@ -347,9 +453,14 @@ namespace FileSharing.ViewModels
                 {
                     Debug.WriteLine("(Server_ProcessIncomingMessage) Cancel Download");
 
-                    var uploadID = reader.GetString(20);
-
-                    CancelUpload(uploadID);
+                    if (reader.TryGetString(out string uploadID))
+                    {
+                        CancelUpload(uploadID);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("(Server_ProcessIncomingMessage) Failed to receive Cancel Download");
+                    }
                 }
                 break;
 
@@ -364,11 +475,13 @@ namespace FileSharing.ViewModels
             if (Enum.TryParse(typeByte + "", out NetMessageType messageType))
             {
                 type = messageType;
+
                 return true;
             }
             else
             {
                 type = NetMessageType.None;
+
                 return false;
             }
         }
@@ -409,7 +522,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!_client.IsConnectedToServer(file.Server.Id, out CryptoPeer? server) ||
+            if (!_client.IsConnectedToServer(file.Server.Peer.Id, out EncryptedPeer? server) ||
                 server == null)
             {
                 MessageBox.Show("File '" + file.Name + "' is unreachable: no connection to file server",
@@ -438,7 +551,7 @@ namespace FileSharing.ViewModels
             }
 
             var folder = folderPicker.FileName;
-            var newDownload = new Download(file.Name, file.Size, file.Hash, file.Server, folder);
+            var newDownload = new Download(file, server, folder);
 
             if (_downloads.HasDownloadWithSamePath(newDownload.Path, out string downloadID))
             {
@@ -509,7 +622,7 @@ namespace FileSharing.ViewModels
 
             if (confirmDownloadCancellation == MessageBoxResult.Yes)
             {
-                if (_client.IsConnectedToServer(download.Server.Id, out CryptoPeer? server) &&
+                if (_client.IsConnectedToServer(download.Server.Peer.Id, out EncryptedPeer? server) &&
                     server != null)
                 {
                     SendFileDenial(server, download.ID);
@@ -538,7 +651,7 @@ namespace FileSharing.ViewModels
             Process.Start("explorer.exe", argument);
         }
 
-        private void DisconnectFromServer(CryptoPeer? server)
+        private void DisconnectFromServer(EncryptedPeer? server)
         {
             if (server == null)
             {
@@ -553,7 +666,6 @@ namespace FileSharing.ViewModels
             if (confirmDisconnect == MessageBoxResult.Yes)
             {
                 _client.DisconnectFromServer(server);
-
                 _availableFiles.RemoveServer(server.Peer.Id);
             }
         }
@@ -604,6 +716,43 @@ namespace FileSharing.ViewModels
                 MessageBoxButton.OK, 
                 MessageBoxImage.Information);
         }
+
+        private void VerifyFileHash(Download? download)
+        {
+            if (download == null)
+            {
+                return;
+            }
+
+            if (!download.IsDownloaded)
+            {
+                MessageBox.Show("Unable to verify hash of file '" + download.Name + "' because it is not downloaded yet!",
+                    "Hash verification error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+
+                return;
+            }
+
+            if (!System.IO.File.Exists(download.Path))
+            {
+                MessageBox.Show("Unable to verify hash of file '" + download.Name + "' because it was removed or deleted!",
+                    "File not found error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+
+                return;
+            }
+
+            if (download.IsHashVerificationStarted &&
+                (download.IsHashVerificationResultNegative ||
+                download.IsHashVerificationResultPositive))
+            {
+                return;
+            }
+
+            download.VerifyHash();
+        }
         #endregion
 
         #region Methods for information exchange between clients and servers
@@ -621,7 +770,7 @@ namespace FileSharing.ViewModels
             _server.SendToAll(message);
         }
 
-        private void SendFilesList(CryptoPeer destination)
+        private void SendFilesList(EncryptedPeer destination)
         {
             var filesList = _sharedFiles.GetAvailableFiles();
             var filesListJson = JsonConvert.SerializeObject(filesList);
@@ -632,10 +781,10 @@ namespace FileSharing.ViewModels
             message.Put(crc);
             message.Put(filesListJson);
 
-            destination.SendEncrypted(message);
+            destination.SendEncrypted(message, 0);
         }
 
-        private void StartSendingFileToClient(CryptoPeer destination, string fileHash, string uploadID)
+        private void StartSendingFileToClient(EncryptedPeer destination, string fileHash, string uploadID)
         {
             if (_sharedFiles.HasFileAvailable(fileHash) &&
                 !_uploads.Has(uploadID))
@@ -651,65 +800,108 @@ namespace FileSharing.ViewModels
 
                 _uploads.Add(upload);
 
-                SendFileSegmentToClient(destination, upload.ID, upload.NumberOfAckedSegments);
+                var numOfSegment = 0;
+                for (byte channel = 0; channel < Constants.ChannelsCount; channel++)
+                {
+                    SendFileSegmentToClient(destination, channel, upload.ID, numOfSegment);
+                    numOfSegment += 1;
+                }
 
                 Debug.WriteLine("(FileSendRoutine) Upload " + uploadID + " has started!");
             }
         }
 
-        private void SendFileSegmentToClient(CryptoPeer destination, string uploadID, long numberOfSegment)
+        private void SendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, long numberOfSegment)
         {
             if (_uploads.Has(uploadID) &&
-                !_uploads[uploadID].IsFinished &&
-                !_uploads[uploadID].IsCancelled &&
+                _uploads[uploadID].IsActive &&
                 _sharedFiles.HasFileAvailable(_uploads[uploadID].FileHash))
             {
                 var file = _sharedFiles.GetByHash(_uploads[uploadID].FileHash);
 
-                if (file.TryReadSegment(numberOfSegment, uploadID, out SimpleWriter message))
+                if (file.TryReadSegment(numberOfSegment, out byte[] segment))
                 {
-                    destination.SendEncrypted(message);
+                    var message = new SimpleWriter();
+                    message.Put((byte)NetMessageType.FileSegment);
+                    message.Put(uploadID);
+                    message.Put(numberOfSegment);
+                    var crc = CRC32.Compute(segment);
+                    message.Put(crc);
+                    message.Put(segment.Length);
+                    message.Put(segment);
+                    message.Put(channelNumber);
+
+                    destination.SendEncrypted(message, channelNumber);
                 }
             }
         }
 
-        private void SendUploadDenial(CryptoPeer destination, string uploadID)
+        private void ResendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, string fileHash, long numberOfSegment)
+        {
+            if (_sharedFiles.HasFileAvailable(fileHash))
+            {
+                var file = _sharedFiles.GetByHash(fileHash);
+
+                if (file.TryReadSegment(numberOfSegment, out byte[] segment))
+                {
+                    var message = new SimpleWriter();
+                    message.Put((byte)NetMessageType.ResendFileSegment);
+                    message.Put(uploadID);
+                    message.Put(numberOfSegment);
+                    var crc = CRC32.Compute(segment);
+                    message.Put(crc);
+                    message.Put(segment.Length);
+                    message.Put(segment);
+                    message.Put(channelNumber);
+
+                    destination.SendEncrypted(message, channelNumber);
+                }
+            }
+        }
+
+        private void SendUploadDenial(EncryptedPeer destination, string uploadID)
         {
             var message = new SimpleWriter();
             message.Put((byte)NetMessageType.CancelDownload);
             message.Put(uploadID);
 
-            destination.SendEncrypted(message);
+            destination.SendEncrypted(message, 0);
         }
 
-        private void SendFilesListRequest(CryptoPeer server)
+        private void SendFilesListRequest(EncryptedPeer server)
         {
             var message = new SimpleWriter();
             message.Put((byte)NetMessageType.FilesListRequest);
 
-            server.SendEncrypted(message);
+            server.SendEncrypted(message, 0);
         }
 
-        private void SendFileSegmentAck(CryptoPeer server, string downloadID)
+        private void SendFileSegmentAck(EncryptedPeer server, string downloadID, long numOfSegment, byte channel)
         {
             var message = new SimpleWriter();
             message.Put((byte)NetMessageType.FileSegmentAck);
             message.Put(downloadID);
-
-            server.SendEncrypted(message);
-        }
-
-        private void RequestFileSegment(CryptoPeer server, string downloadID, long numOfSegment)
-        {
-            var message = new SimpleWriter();
-            message.Put((byte)NetMessageType.FileSegment);
-            message.Put(downloadID);
             message.Put(numOfSegment);
+            message.Put(channel);
 
-            server.SendEncrypted(message);
+            server.SendEncrypted(message, channel);
         }
 
-        private void SendFileDenial(CryptoPeer server, string downloadID)
+        private void RequestFileSegment(EncryptedPeer server, string downloadID, string fileHash, long numOfSegment, byte channel)
+        {
+            Debug.WriteLine("(RequestFileSegment) " + fileHash + ", segment no. " + numOfSegment);
+
+            var message = new SimpleWriter();
+            message.Put((byte)NetMessageType.ResendFileSegment);
+            message.Put(downloadID);
+            message.Put(fileHash);
+            message.Put(numOfSegment);
+            message.Put(channel);
+
+            server.SendEncrypted(message, channel);
+        }
+
+        private void SendFileDenial(EncryptedPeer server, string downloadID)
         {
             if (!_downloads.HasDownload(downloadID))
             {
@@ -722,17 +914,17 @@ namespace FileSharing.ViewModels
             message.Put((byte)NetMessageType.CancelDownload);
             message.Put(downloadID);
 
-            server.SendEncrypted(message);
+            server.SendEncrypted(message, 0);
         }
 
-        private void SendFileRequest(CryptoPeer server, Download download)
+        private void SendFileRequest(EncryptedPeer server, Download download)
         {
             var message = new SimpleWriter();
             message.Put((byte)NetMessageType.FileRequest);
             message.Put(download.Hash);
             message.Put(download.ID);
 
-            server.SendEncrypted(message);
+            server.SendEncrypted(message, 0);
         }
 
         private void PrepareForFileReceiving(Download download)
@@ -740,7 +932,7 @@ namespace FileSharing.ViewModels
             _downloads.AddDownload(download);
         }
 
-        private void ReceiveFilesList(CryptoPeer server, uint receivedCrc, string jsonFilesList)
+        private void ReceiveFilesList(EncryptedPeer server, uint receivedCrc, string jsonFilesList)
         {
             var calculatedCrc = CRC32.Compute(jsonFilesList);
             if (receivedCrc != calculatedCrc)
@@ -758,38 +950,60 @@ namespace FileSharing.ViewModels
             if (filesList != null &&
                 _availableFiles.HasServer(server.Peer.Id))
             {
-                Debug.WriteLine("Start updating files list");
-
                 _availableFiles[server.Peer.Id].UpdateWith(filesList);
             }
         }
 
-        private void ReceiveFileSegment(CryptoPeer server, string downloadID, long numOfSegment, uint receivedCrc, byte[] segment)
+        private void ReceiveFileSegment(EncryptedPeer server, string downloadID, long numOfSegment, uint receivedCrc, byte[] segment, byte channel)
         {
             if (_downloads.HasDownload(downloadID) &&
-                !_downloads[downloadID].IsCancelled &&
-                !_downloads[downloadID].IsDownloaded &&
-                !_downloads[downloadID].IsCorrupted)
+                _downloads[downloadID].IsActive)
             {
                 var calculatedCrc = CRC32.Compute(segment);
 
                 if (receivedCrc != calculatedCrc)
                 {
-                    Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received file segment of {0} does not match: {1} != {2}", _downloads[downloadID].Name, receivedCrc, calculatedCrc);
+                    Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received file segment of {0} does not match: {1} != {2}",
+                        _downloads[downloadID].Name,
+                        receivedCrc,
+                        calculatedCrc);
 
-                    RequestFileSegment(server, downloadID, numOfSegment);
+                    RequestFileSegment(server, downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
                 }
                 else
                 {
-                    if (_downloads[downloadID].TryWrite(numOfSegment, segment))
+                    if (_downloads[downloadID].TryWrite(numOfSegment, segment, channel))
                     {
-                        SendFileSegmentAck(server, downloadID);
+                        SendFileSegmentAck(server, downloadID, numOfSegment, channel);
                     }
                 }
             }
         }
 
-        private void ReceiveDownloadCancellation(CryptoPeer server, string downloadID)
+        private void ReceiveResendedFileSegment(EncryptedPeer server, string downloadID, long numOfSegment, uint receivedCrc, byte[] segment, byte channel)
+        {
+            if (_downloads.HasDownload(downloadID) &&
+                _downloads[downloadID].IsActive)
+            {
+                var calculatedCrc = CRC32.Compute(segment);
+
+                if (receivedCrc != calculatedCrc)
+                {
+                    Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received file segment of {0} does not match: {1} != {2}",
+                        _downloads[downloadID].Name,
+                        receivedCrc,
+                        calculatedCrc);
+
+                    RequestFileSegment(server, downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
+                }
+                else
+                {
+                    _downloads[downloadID].TryWrite(numOfSegment, segment, channel);
+                }
+            }
+        }
+
+        private void ReceiveDownloadCancellation(EncryptedPeer server, string downloadID)
         {
             if (_downloads.HasDownload(downloadID))
             {
@@ -797,15 +1011,20 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void ReceiveAckFromClient(CryptoPeer client, string uploadID)
+        private void ReceiveAckFromClient(EncryptedPeer client, string uploadID, long numOfSegment, byte channel)
         {
             if (!_uploads.Has(uploadID))
             {
                 return;
             }
 
-            _uploads[uploadID].AddAck();
-            SendFileSegmentToClient(client, uploadID, _uploads[uploadID].NumberOfAckedSegments);
+            if (channel >= Constants.ChannelsCount || channel < 0)
+            {
+                return;
+            }
+
+            _uploads[uploadID].AddAck(numOfSegment);
+            SendFileSegmentToClient(client, channel, uploadID, _uploads[uploadID].NumberOfAckedSegments);
         }
 
 
@@ -814,6 +1033,25 @@ namespace FileSharing.ViewModels
             if (_uploads.Has(uploadID))
             {
                 _uploads[uploadID].Cancel();
+            }
+        }
+
+        private void RequestMissingFileSegments(MissingSegmentsEventArgs args)
+        {
+            var task = new Task(() => RequestMissingFileSegmentsTask(args));
+            task.Start();
+        }
+
+        private void RequestMissingFileSegmentsTask(MissingSegmentsEventArgs args)
+        {
+            for (int i = 0; i < args.NumbersOfMissingSegments.Count; i++)
+            {
+                RequestFileSegment(args.Server, args.DownloadID, args.FileHash, args.NumbersOfMissingSegments[i], Convert.ToByte(i % Constants.ChannelsCount));
+
+                if (i % 3 == 0)
+                {
+                    Thread.Sleep(20);
+                }
             }
         }
         #endregion

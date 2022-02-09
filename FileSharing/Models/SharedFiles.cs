@@ -23,6 +23,7 @@ namespace FileSharing.Models
 
         public event EventHandler<EventArgs>? SharedFileAdded;
         public event EventHandler<EventArgs>? SharedFileHashCalculated;
+        public event EventHandler<SharedFileEventArgs>? SharedFileError;
         public event EventHandler<EventArgs>? SharedFileRemoved;
 
         public SharedFile this[long index]
@@ -47,8 +48,7 @@ namespace FileSharing.Models
         {
             return _files.Values.Any(
                 sharedFile => sharedFile.Hash == fileHash &&
-                sharedFile.IsHashCalculated &&
-                !sharedFile.IsCorrupted);
+                sharedFile.IsHashCalculated);
         }
 
         public SharedFile GetByHash(string fileHash)
@@ -72,20 +72,18 @@ namespace FileSharing.Models
 
         private void AddFileRoutine(string filePath)
         {
+            if (!File.Exists(filePath))
+            {
+                Debug.WriteLine("(AddFileRoutine) File doesn't exist");
+
+                return;
+            }
+
+            var index = _indexer.GetNewIndex();
+
             try
             {
-                if (!File.Exists(filePath))
-                {
-                    Debug.WriteLine("(AddFileRoutine) File doesn't exist");
-                    return;
-                }
-
-                var name = Path.GetFileName(filePath);
-                using var fileStream = File.OpenRead(filePath);
-                var size = fileStream.Length;
-
-                var sharedFile = new SharedFile(_indexer.GetIndex(), name, size, filePath);
-                sharedFile.HashCalculated += OnSharedFileHashCalculated;
+                var sharedFile = new SharedFile(index, filePath);
 
                 if (_files.TryAdd(sharedFile.Index, sharedFile))
                 {
@@ -93,21 +91,22 @@ namespace FileSharing.Models
 
                     Debug.WriteLine("(AddFileRoutine) File " + sharedFile.Name + " added to collection of files");
 
-                    _files[sharedFile.Index].OpenStream();
-                    _files[sharedFile.Index].ComputeHashOfFile();
+                    if (_files[sharedFile.Index].TryComputeHashOfFile())
+                    {
+                        SharedFileHashCalculated?.Invoke(this, EventArgs.Empty);
 
-                    Debug.WriteLine("(AddFileRoutine) Hash for file " + _files[sharedFile.Index].Name + " has been calculated: " + _files[sharedFile.Index].Hash);
+                        Debug.WriteLine("(AddFileRoutine) Hash for file " + _files[sharedFile.Index].Name + " has been calculated: " + _files[sharedFile.Index].Hash);
+                    }
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.WriteLine("(AddFileRoutine) " + e);
-            }
-        }
+                Debug.WriteLine("(AddFileRoutine) Something went wrong");
 
-        private void OnSharedFileHashCalculated(object? sender, EventArgs e)
-        {
-            SharedFileHashCalculated?.Invoke(this, EventArgs.Empty);
+                RemoveFile(index);
+
+                SharedFileError?.Invoke(this, new SharedFileEventArgs(filePath));
+            }
         }
 
         public void RemoveFile(long fileIndex)
