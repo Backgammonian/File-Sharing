@@ -13,6 +13,7 @@ namespace FileSharing.Models
         private DateTime _finishTime;
         private long _bytesSent;
         private bool[] _fileSegmentsCheck;
+        private long _resendedFileSegments;
 
         public Upload(string id, string fileName, long fileSize, string fileHash, EncryptedPeer destination, long numberOfSegments)
         {
@@ -33,6 +34,8 @@ namespace FileSharing.Models
             {
                 _fileSegmentsCheck[i] = false;
             }
+
+            ResendedFileSegments = 0;
         }
 
         public string ID { get; }
@@ -86,6 +89,12 @@ namespace FileSharing.Models
             }
         }
 
+        public long ResendedFileSegments
+        {
+            get => _resendedFileSegments;
+            private set => SetProperty(ref _resendedFileSegments, value);
+        }
+
         public bool IsActive => !IsCancelled && !IsFinished;
         public decimal Progress => NumberOfAckedSegments / Convert.ToDecimal(NumberOfSegments);
         public double AverageSpeed => BytesSent / (DateTime.Now - StartTime).TotalSeconds;
@@ -131,6 +140,11 @@ namespace FileSharing.Models
             }
 
             IsCancelled = true;
+        }
+
+        public void AddResendedSegment()
+        {
+            ResendedFileSegments += 1;
         }
     }
 }

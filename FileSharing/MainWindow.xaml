@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:bh="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:local="clr-namespace:FileSharing"
+        xmlns:dropFiles="clr-namespace:DropFiles"
         xmlns:viewModels="clr-namespace:FileSharing.ViewModels"
         xmlns:tray="clr-namespace:SystemTrayApp.WPF"
         mc:Ignorable="d"
@@ -73,6 +74,7 @@
                                 </TabItem.Header>
                                 <TabItem.Content>
                                     <ListBox
+                                        dropFiles:DropFilesBehaviorExtension.IsEnabled="True"
                                         Background="{StaticResource ServerColor}"
                                         ItemsSource="{Binding SharedFiles}"
                                         SelectedItem="{Binding SelectedSharedFile}">
@@ -147,6 +149,9 @@
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
                                                         Text="{Binding FileHash, StringFormat={}SHA256 Hash: {0}}" />
+                                                    <TextBlock 
+                                                        Style="{StaticResource popUpTextBlock}" 
+                                                        Text="{Binding ResendedFileSegments, StringFormat={}Resended file segments: {0}}" />
                                                     <TextBlock 
                                                         Style="{StaticResource popUpTextBlock}" 
                                                         Text="{Binding StartTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Start time: {0}}" />
@@ -329,6 +334,9 @@
                                                     <TextBlock 
                                                         Style="{StaticResource titleStyle}" 
                                                         Text="{Binding Name}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource baseTextBlockStyle}" 
+                                                        Text="{Binding OriginalName, StringFormat={}Original name: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource baseTextBlockStyle}" 
                                                         Text="{Binding DownloadSpeed, Converter={StaticResource downloadSpeedConverter}, StringFormat={}Download speed: {0}}" />

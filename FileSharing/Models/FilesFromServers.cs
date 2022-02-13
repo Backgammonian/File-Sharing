@@ -14,12 +14,12 @@ namespace FileSharing.Models
         public FilesFromServers()
         {
             _filesFromServers = new ConcurrentDictionary<int, FilesFromServer>();
-            List = new List<FileInfo>();
+            List = new List<SharedFileInfo>();
         }
 
         public event EventHandler<EventArgs>? FilesUpdated;
 
-        public List<FileInfo> List { get; }
+        public List<SharedFileInfo> List { get; }
 
         public FilesFromServer this[int serverID]
         {

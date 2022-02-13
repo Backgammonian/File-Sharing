@@ -56,11 +56,11 @@ namespace FileSharing.Models
             return _files.Values.First(sharedFile => sharedFile.Hash == fileHash);
         }
 
-        public List<FileInfo> GetAvailableFiles()
+        public List<SharedFileInfo> GetAvailableFiles()
         {
             return _files.Values.
                 Where(sharedFile => sharedFile.IsHashCalculated).
-                Select(sharedFile => new FileInfo(sharedFile)).
+                Select(sharedFile => new SharedFileInfo(sharedFile)).
                 ToList();
         }
 

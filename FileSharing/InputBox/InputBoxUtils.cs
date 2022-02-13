@@ -1,12 +1,12 @@
 ﻿using System.Net;
 
-namespace FileSharing.InputBox
+namespace InputBox
 {
     public class InputBoxUtils
     {
         public bool AskServerAddress(out IPAddress? address)
         {
-            var inputBox = new InputBox("Connection to File Server", "Enter IP address of File Server");
+            var inputBox = new InputBoxWindow("Connection to File Server", "Enter IP address of File Server");
             if (inputBox.ShowDialog() == true)
             {
                 if (IPAddress.TryParse(inputBox.Answer, out IPAddress? ip) &&
@@ -23,7 +23,7 @@ namespace FileSharing.InputBox
 
         public bool AskPort(out int port)
         {
-            var inputBox = new InputBox("Set server port number", "Enter port number of local File Server", 55000 + "");
+            var inputBox = new InputBoxWindow("Set server port number", "Enter port number of local File Server", 55000 + "");
             if (inputBox.ShowDialog() == true)
             {
                 if (int.TryParse(inputBox.Answer, out int portNumber) &&
@@ -41,7 +41,7 @@ namespace FileSharing.InputBox
 
         public bool AskServerAddressAndPort(out IPEndPoint? serverAddress)
         {
-            var inputBox = new InputBox("Connection to File Server",
+            var inputBox = new InputBoxWindow("Connection to File Server",
                 "Enter IP address of file server (example: 10.0.0.8).\nAlso you can specify port (example: 10.0.0.8:55000),\nwhere port takes values from 1025 to 65535.");
             if (inputBox.ShowDialog() == true)
             {

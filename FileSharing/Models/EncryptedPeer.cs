@@ -18,7 +18,7 @@ namespace FileSharing.Models
         private DateTime _startTime;
         private TimeSpan _connectionDuration;
         private readonly DispatcherTimer _disconnectTimer;
-        private const int _timeout = 10;
+        private const int _timeout = 30;
 
         private const double _interval = 100.0;
 

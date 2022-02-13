@@ -1,8 +1,8 @@
 ﻿namespace FileSharing.Models
 {
-    public class FileInfo
+    public class SharedFileInfo
     {
-        public FileInfo() //empty constructor for JSON deserializing, used in client
+        public SharedFileInfo() //empty constructor for JSON deserializing, used in client
         {
             Name = "";
             Size = 0;
@@ -11,7 +11,7 @@
             Server = null;
         }
 
-        public FileInfo(SharedFile sharedFile) //used in server
+        public SharedFileInfo(SharedFile sharedFile) //used in server
         {
             Name = sharedFile.Name;
             Size = sharedFile.Size;

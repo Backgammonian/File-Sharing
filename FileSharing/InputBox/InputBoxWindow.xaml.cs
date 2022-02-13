@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Windows;
 
-namespace FileSharing.InputBox
+namespace InputBox
 {
-    public partial class InputBox : Window
+    public partial class InputBoxWindow : Window
     {
-        public InputBox(string title, string question, string defaultAnswer = "")
+        public InputBoxWindow(string title, string question, string defaultAnswer = "")
         {
             InitializeComponent();
 

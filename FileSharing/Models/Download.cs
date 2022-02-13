@@ -17,6 +17,7 @@ namespace FileSharing.Models
         private bool _isDownloaded;
         private bool _isCancelled;
         private bool _isHashVerificationStarted;
+        private bool _isHashVerificationFailed;
         private bool _isHashVerificationResultPositive;
         private bool _isHashVerificationResultNegative;
         private double _averageSpeed;
@@ -32,11 +33,12 @@ namespace FileSharing.Models
         private long[] _incomingSegmentsChannelsStatistic;
         private readonly DispatcherTimer _missingSegmentsTimer;
 
-        public Download(FileInfo availableFile, EncryptedPeer server, string folder)
+        public Download(SharedFileInfo availableFile, EncryptedPeer server, string path)
         {
             ID = RandomGenerator.GetRandomString(20);
-            Name = availableFile.Name;
-            Path = folder + "\\" + Name;
+            OriginalName = availableFile.Name;
+            Name = System.IO.Path.GetFileName(path);
+            Path = path;
             Size = availableFile.Size;
             NumberOfSegments = availableFile.NumberOfSegments;
             Hash = availableFile.Hash;
@@ -81,9 +83,16 @@ namespace FileSharing.Models
             _incomingSegmentsChannelsStatistic = new long[Constants.ChannelsCount];
 
             _missingSegmentsTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
-            _missingSegmentsTimer.Interval = new TimeSpan(0, 0, 10);
+            _missingSegmentsTimer.Interval = new TimeSpan(0, 0, 20);
             _missingSegmentsTimer.Tick += (s, e) =>
             {
+                _missingSegmentsTimer.Stop();
+
+                if (!IsActive)
+                {
+                    return;
+                }
+
                 var numbersOfMissingSegments = new List<long>();
                 for (long i = 0; i < _fileSegmentsCheck.Length; i++)
                 {
@@ -96,7 +105,7 @@ namespace FileSharing.Models
                 Debug.WriteLine("(Download_MissingSegmentsTimer) Requesting " + numbersOfMissingSegments.Count + " segments");
 
                 MissingSegmentsRequested?.Invoke(this, new MissingSegmentsEventArgs(ID, Hash, numbersOfMissingSegments, Server));
-                _missingSegmentsTimer.Stop();
+                
             };
             _missingSegmentsTimer.Start();
         }
@@ -105,6 +114,7 @@ namespace FileSharing.Models
         public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
 
         public string ID { get; }
+        public string OriginalName { get; }
         public string Name { get; }
         public string Path { get; }
         public long Size { get; }
@@ -129,6 +139,12 @@ namespace FileSharing.Models
         {
             get => _isHashVerificationStarted;
             private set => SetProperty(ref _isHashVerificationStarted, value);
+        }
+
+        public bool IsHashVerificationFailed
+        {
+            get => _isHashVerificationFailed;
+            private set => SetProperty(ref _isHashVerificationFailed, value);
         }
 
         public bool IsHashVerificationResultPositive
@@ -218,6 +234,7 @@ namespace FileSharing.Models
         {
             DownloadSpeed = 0;
             _downloadSpeedCounter.Stop();
+            _missingSegmentsTimer.Stop();
             _stopwatch.Stop();
             _stream.Close();
             _stream.Dispose();
@@ -317,9 +334,15 @@ namespace FileSharing.Models
             }
         }
 
+        public void ProhibitHashVerification()
+        {
+            IsHashVerificationFailed = true;
+        }
+
         public void VerifyHash()
         {
-            if (IsHashVerificationStarted)
+            if (IsHashVerificationStarted ||
+                IsHashVerificationFailed)
             {
                 return;
             }

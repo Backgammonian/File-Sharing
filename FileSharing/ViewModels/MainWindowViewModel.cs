@@ -10,20 +10,21 @@ using System.Windows.Input;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
+using System.IO;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using Microsoft.Toolkit.Mvvm.Input;
-using Microsoft.WindowsAPICodePack.Dialogs;
 using Microsoft.Win32;
 using SystemTrayApp.WPF;
 using Newtonsoft.Json;
 using FileSharing.Models;
 using FileSharing.Networking;
 using FileSharing.Utils;
-using FileSharing.InputBox;
+using InputBox;
+using DropFiles;
 
 namespace FileSharing.ViewModels
 {
-    public class MainWindowViewModel : ObservableRecipient
+    public class MainWindowViewModel : ObservableRecipient, IFilesDropped
     {
         private NotifyIconWrapper.NotifyRequestRecord? _notifyRequest;
         private bool _showInTaskbar;
@@ -59,7 +60,7 @@ namespace FileSharing.ViewModels
 
             //client-side commands
             ConnectToServerCommand = new RelayCommand(ConnectToServer);
-            DownloadFileCommand = new RelayCommand<FileInfo>(DownloadFile);
+            DownloadFileCommand = new RelayCommand<SharedFileInfo>(DownloadFile);
             CancelDownloadCommand = new RelayCommand<Download>(CancelDownload);
             OpenFileInFolderCommand = new RelayCommand<Download>(OpenFileInFolder);
             DisconnectFromServerCommand = new RelayCommand<EncryptedPeer>(DisconnectFromServer);
@@ -154,13 +155,13 @@ namespace FileSharing.ViewModels
         public ICommand AddFileCommand { get; }
         public ICommand ShowLocalPortCommand { get; }
         public ICommand VerifyFileHashCommand { get; }
-        public ObservableCollection<FileInfo> AvailableFiles => new ObservableCollection<FileInfo>(_availableFiles.List);
+        public ObservableCollection<SharedFileInfo> AvailableFiles => new ObservableCollection<SharedFileInfo>(_availableFiles.List);
         public ObservableCollection<Download> Downloads => new ObservableCollection<Download>(_downloads.DownloadsList);
         public ObservableCollection<EncryptedPeer> Servers => new ObservableCollection<EncryptedPeer>(_client.Servers);
         public ObservableCollection<SharedFile> SharedFiles => new ObservableCollection<SharedFile>(_sharedFiles.SharedFilesList);
         public ObservableCollection<Upload> Uploads => new ObservableCollection<Upload>(_uploads.UploadsList);
         public ObservableCollection<EncryptedPeer> Clients => new ObservableCollection<EncryptedPeer>(_server.Clients);
-        public FileInfo? SelectedAvailableFile { get; set; }
+        public SharedFileInfo? SelectedAvailableFile { get; set; }
         public Download? SelectedDownload { get; set; }
         public EncryptedPeer? SelectedServer { get; set; }
         public SharedFile? SelectedSharedFile { get; set; }
@@ -296,8 +297,9 @@ namespace FileSharing.ViewModels
                 break;
 
                 case NetMessageType.FileSegment:
+                case NetMessageType.ResendFileSegment:
                 {
-                    Debug.WriteLine("(Client_ProcessIncomingMessage) File Segment");
+                    Debug.WriteLine("(Client_ProcessIncomingMessage) " + type);
 
                     if (reader.TryGetString(out string downloadID) &&
                         reader.TryGetLong(out long numOfSegment) &&
@@ -309,26 +311,7 @@ namespace FileSharing.ViewModels
                     }
                     else
                     {
-                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Segment");
-                    }
-                }
-                break;
-
-                case NetMessageType.ResendFileSegment:
-                {
-                    Debug.WriteLine("(Client_ProcessIncomingMessage) Resend File Segment");
-
-                    if (reader.TryGetString(out string downloadID) &&
-                        reader.TryGetLong(out long numOfSegment) &&
-                        reader.TryGetUInt(out uint receivedCrc) &&
-                        reader.TryGetBytesWithLength(out byte[] segment) &&
-                        reader.TryGetByte(out byte channel))
-                    {
-                        ReceiveResendedFileSegment(server, downloadID, numOfSegment, receivedCrc, segment, channel);
-                    }
-                    else
-                    {
-                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get File Segment");
+                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get " + type);
                     }
                 }
                 break;
@@ -505,7 +488,7 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void DownloadFile(FileInfo? file)
+        private void DownloadFile(SharedFileInfo? file)
         {
             if (file == null)
             {
@@ -514,9 +497,9 @@ namespace FileSharing.ViewModels
 
             if (file.Server == null)
             {
-                MessageBox.Show("File " + file.Name + " is unreachable: unknown file server", 
-                    "Download error", 
-                    MessageBoxButton.OK, 
+                MessageBox.Show("File " + file.Name + " is unreachable: unknown file server",
+                    "Download error",
+                    MessageBoxButton.OK,
                     MessageBoxImage.Error);
 
                 return;
@@ -533,26 +516,29 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            var confirmFileDownload = MessageBox.Show("Do you want to download this file: '" + file.Name + "'?",
-                "Download Confirmation",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+            var fileName = Path.GetFileNameWithoutExtension(file.Name);
+            var fileExtension = Path.GetExtension(file.Name);
 
-            if (confirmFileDownload != MessageBoxResult.Yes)
+            var saveFileDialog = new SaveFileDialog()
+            {
+                FileName = fileName,
+                DefaultExt = fileExtension,
+                ValidateNames = true,
+                Filter = fileExtension.Length > 0 ?
+                    string.Format("{1} files (*{0})|*{0}|All files (*.*)|*.*", fileExtension, fileExtension.Remove(0, 1).ToUpper()) :
+                    "All files (*.*)|*.*"
+            };
+
+            var dialogResult = saveFileDialog.ShowDialog();
+            if (!dialogResult.HasValue ||
+                !dialogResult.Value)
             {
                 return;
             }
 
-            var folderPicker = new CommonOpenFileDialog();
-            folderPicker.IsFolderPicker = true;
-            if (folderPicker.ShowDialog() != CommonFileDialogResult.Ok)
-            {
-                return;
-            }
+            Debug.WriteLine("(DownloadFile) Path: " + saveFileDialog.FileName);
 
-            var folder = folderPicker.FileName;
-            var newDownload = new Download(file, server, folder);
-
+            var newDownload = new Download(file, server, saveFileDialog.FileName);
             if (_downloads.HasDownloadWithSamePath(newDownload.Path, out string downloadID))
             {
                 var confirmDownloadRestart = MessageBox.Show("File '" + file.Name + "' is already downloading! Do you want to restart download of this file?",
@@ -568,7 +554,7 @@ namespace FileSharing.ViewModels
                 }
             }
             else
-            if (System.IO.File.Exists(newDownload.Path))
+            if (File.Exists(newDownload.Path))
             {
                 var confirmDownloadRepeat = MessageBox.Show("File '" + file.Name + "' already exists. Do you want to download this file again?",
                     "Download Confirmation",
@@ -637,7 +623,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!System.IO.File.Exists(download.Path))
+            if (!File.Exists(download.Path))
             {
                 MessageBox.Show("File '" + download.Name + "' was removed or deleted.",
                     "File not found",
@@ -707,6 +693,19 @@ namespace FileSharing.ViewModels
             }
         }
 
+        public void OnFilesDropped(string[] files)
+        {
+            foreach (var file in files)
+            {
+                if (File.Exists(file))
+                {
+                    Debug.WriteLine("(OnFilesDropped) Dragging file: " + file);
+
+                    _sharedFiles.AddFile(file);
+                }
+            }
+        }
+
         private void ShowLocalPort()
         {
             var port = _server.LocalPort;
@@ -734,19 +733,26 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!System.IO.File.Exists(download.Path))
+            if (!File.Exists(download.Path))
             {
                 MessageBox.Show("Unable to verify hash of file '" + download.Name + "' because it was removed or deleted!",
                     "File not found error",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
 
+                download.ProhibitHashVerification();
+
                 return;
             }
 
-            if (download.IsHashVerificationStarted &&
-                (download.IsHashVerificationResultNegative ||
-                download.IsHashVerificationResultPositive))
+            if (download.IsHashVerificationStarted ||
+                download.IsHashVerificationFailed)
+            {
+                return;
+            }
+
+            if (download.IsHashVerificationResultNegative ||
+                download.IsHashVerificationResultPositive)
             {
                 return;
             }
@@ -800,14 +806,18 @@ namespace FileSharing.ViewModels
 
                 _uploads.Add(upload);
 
-                var numOfSegment = 0;
-                for (byte channel = 0; channel < Constants.ChannelsCount; channel++)
-                {
-                    SendFileSegmentToClient(destination, channel, upload.ID, numOfSegment);
-                    numOfSegment += 1;
-                }
-
                 Debug.WriteLine("(FileSendRoutine) Upload " + uploadID + " has started!");
+
+                byte channelNumber = 0;
+                var initialSegmentsCount = upload.NumberOfSegments < Constants.ChannelsCount ? upload.NumberOfSegments : Constants.ChannelsCount;
+
+                Debug.WriteLine("(InitialSegmentsCount) " + initialSegmentsCount);
+
+                for (long numberOfSegment = 0; numberOfSegment < initialSegmentsCount; numberOfSegment++)
+                {
+                    SendFileSegmentToClient(destination, channelNumber, upload.ID, numberOfSegment);
+                    channelNumber += 1;
+                }
             }
         }
 
@@ -838,7 +848,9 @@ namespace FileSharing.ViewModels
 
         private void ResendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, string fileHash, long numberOfSegment)
         {
-            if (_sharedFiles.HasFileAvailable(fileHash))
+            if (_uploads.Has(uploadID) &&
+                _uploads[uploadID].IsActive &&
+                _sharedFiles.HasFileAvailable(fileHash))
             {
                 var file = _sharedFiles.GetByHash(fileHash);
 
@@ -856,6 +868,11 @@ namespace FileSharing.ViewModels
 
                     destination.SendEncrypted(message, channelNumber);
                 }
+            }
+
+            if (_uploads.Has(uploadID))
+            {
+                _uploads[uploadID].AddResendedSegment();
             }
         }
 
@@ -946,7 +963,7 @@ namespace FileSharing.ViewModels
 
             Debug.WriteLine(jsonFilesList);
 
-            var filesList = JsonConvert.DeserializeObject<List<FileInfo>>(jsonFilesList);
+            var filesList = JsonConvert.DeserializeObject<List<SharedFileInfo>>(jsonFilesList);
             if (filesList != null &&
                 _availableFiles.HasServer(server.Peer.Id))
             {
@@ -976,29 +993,6 @@ namespace FileSharing.ViewModels
                     {
                         SendFileSegmentAck(server, downloadID, numOfSegment, channel);
                     }
-                }
-            }
-        }
-
-        private void ReceiveResendedFileSegment(EncryptedPeer server, string downloadID, long numOfSegment, uint receivedCrc, byte[] segment, byte channel)
-        {
-            if (_downloads.HasDownload(downloadID) &&
-                _downloads[downloadID].IsActive)
-            {
-                var calculatedCrc = CRC32.Compute(segment);
-
-                if (receivedCrc != calculatedCrc)
-                {
-                    Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received file segment of {0} does not match: {1} != {2}",
-                        _downloads[downloadID].Name,
-                        receivedCrc,
-                        calculatedCrc);
-
-                    RequestFileSegment(server, downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
-                }
-                else
-                {
-                    _downloads[downloadID].TryWrite(numOfSegment, segment, channel);
                 }
             }
         }
@@ -1115,7 +1109,7 @@ namespace FileSharing.ViewModels
         private void ShutdownApp()
         {
             var question = MessageBox.Show("Do you want to close FileSharing™©? Current downloads and uploads will be stopped!",
-                "Download Confirmation",
+                "Shutdown Confirmation",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 

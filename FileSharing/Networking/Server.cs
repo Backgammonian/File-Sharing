@@ -25,6 +25,7 @@ namespace FileSharing.Networking
             _xor = new XorEncryptLayer("VerySecretSymmetricXorPassword");
             _server = new NetManager(_listener, _xor);
             _server.ChannelsCount = Constants.ChannelsCount;
+            _server.DisconnectTimeout = Constants.DisconnectionTimeout;
             _clients = new EncryptedPeers();
             _clients.PeerAdded += OnClientAdded;
             _clients.PeerRemoved += OnClientRemoved;

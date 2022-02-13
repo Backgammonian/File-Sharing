@@ -159,6 +159,10 @@
             <DataTrigger Binding="{Binding IsHashVerificationStarted}" Value="True">
                 <Setter Property="IsEnabled" Value="False"/>
             </DataTrigger>
+
+            <DataTrigger Binding="{Binding IsHashVerificationFailed}" Value="True">
+                <Setter Property="IsEnabled" Value="False"/>
+            </DataTrigger>
         </Style.Triggers>
     </Style>
 

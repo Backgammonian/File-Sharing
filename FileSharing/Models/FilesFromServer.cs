@@ -7,18 +7,18 @@ namespace FileSharing.Models
 {
     public class FilesFromServer
     {
-        private readonly ConcurrentDictionary<int, FileInfo> _files;
+        private readonly ConcurrentDictionary<int, SharedFileInfo> _files;
         private readonly EncryptedPeer _server;
 
         public FilesFromServer(EncryptedPeer server)
         {
-            _files = new ConcurrentDictionary<int, FileInfo>();
+            _files = new ConcurrentDictionary<int, SharedFileInfo>();
             _server = server;
         }
 
         public event EventHandler<EventArgs>? ListUpdated;
 
-        public IEnumerable<FileInfo> Files => _files.Values;
+        public IEnumerable<SharedFileInfo> Files => _files.Values;
 
         public void Clear()
         {
@@ -27,10 +27,9 @@ namespace FileSharing.Models
             ListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
-        public void UpdateWith(List<FileInfo> newFiles)
+        public void UpdateWith(List<SharedFileInfo> newFiles)
         {
             _files.Clear();
-            newFiles.Sort((x, y) => x.Name.CompareTo(y.Name));
             for (int i = 0; i < newFiles.Count; i++)
             {
                 if (_files.TryAdd(i, newFiles[i]))
