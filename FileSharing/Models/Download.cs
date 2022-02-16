@@ -83,13 +83,12 @@ namespace FileSharing.Models
             _incomingSegmentsChannelsStatistic = new long[Constants.ChannelsCount];
 
             _missingSegmentsTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
-            _missingSegmentsTimer.Interval = new TimeSpan(0, 0, 20);
+            _missingSegmentsTimer.Interval = new TimeSpan(0, 0, 0, 0, Constants.DisconnectionTimeout / 2);
             _missingSegmentsTimer.Tick += (s, e) =>
             {
-                _missingSegmentsTimer.Stop();
-
                 if (!IsActive)
                 {
+                    _missingSegmentsTimer.Stop();
                     return;
                 }
 
@@ -105,7 +104,6 @@ namespace FileSharing.Models
                 Debug.WriteLine("(Download_MissingSegmentsTimer) Requesting " + numbersOfMissingSegments.Count + " segments");
 
                 MissingSegmentsRequested?.Invoke(this, new MissingSegmentsEventArgs(ID, Hash, numbersOfMissingSegments, Server));
-                
             };
             _missingSegmentsTimer.Start();
         }

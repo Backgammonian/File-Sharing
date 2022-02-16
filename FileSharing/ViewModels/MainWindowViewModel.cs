@@ -142,6 +142,8 @@ namespace FileSharing.ViewModels
                 
             e.Cancel = true;
             WindowState = WindowState.Minimized;
+
+            Debug.WriteLine("(Closing)");
         }
         #endregion
 
@@ -1042,7 +1044,7 @@ namespace FileSharing.ViewModels
             {
                 RequestFileSegment(args.Server, args.DownloadID, args.FileHash, args.NumbersOfMissingSegments[i], Convert.ToByte(i % Constants.ChannelsCount));
 
-                if (i % 3 == 0)
+                if (i % 4 == 0)
                 {
                     Thread.Sleep(20);
                 }
