@@ -4,8 +4,8 @@ namespace FileSharing
 {
     public static class Constants
     {
-        public static readonly int FileSegmentSize = Convert.ToInt32(Math.Pow(2, 18));
-        public const byte ChannelsCount = 8;
-        public const int DisconnectionTimeout = 30000;
+        public static int FileSegmentSize { get; } = Convert.ToInt32(Math.Pow(2, 13));
+        public static byte ChannelsCount { get; } = 32;
+        public static int DisconnectionTimeout { get; } = 30000;
     }
 }
