@@ -16,8 +16,8 @@ WPF-MVVM app for sharing any files between computers.
 Encryption scheme implemented in this project may be vulnerable to various attacks such as MITM, replay attack, etc.\
 This app may be not a very good option for sending sensetive data across Internet because it was created purely in education purposes.
 ## Demonstration:
-![uploads](FileSharing/upload.gif)
-![downloads](FileSharing/download.gif)
+![uploads](upload.gif)
+![downloads](download.gif)
 ## Libraries used in this project:
 * [LiteNetLib](https://github.com/RevenantX/LiteNetLib)
 * [Newtonsoft.Json](https://www.newtonsoft.com/json)
