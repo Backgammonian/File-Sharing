@@ -10,21 +10,21 @@ namespace InputBox
             InitializeComponent();
 
             Title = title;
-            _question.Content = question;
-            _answer.Text = defaultAnswer;
+            Question.Content = question;
+            UserAnswer.Text = defaultAnswer;
         }
 
-        public string Answer => _answer.Text;
+        public string Answer => UserAnswer.Text;
 
-        private void OkClick(object sender, RoutedEventArgs e)
+        private void OnOkClicked(object sender, RoutedEventArgs e)
         {
             DialogResult = true;
         }
 
         private void OnContentRendered(object sender, EventArgs e)
         {
-            _answer.SelectAll();
-            _answer.Focus();
+            UserAnswer.SelectAll();
+            UserAnswer.Focus();
         }
     }
 }

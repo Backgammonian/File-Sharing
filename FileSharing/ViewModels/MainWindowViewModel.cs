@@ -24,27 +24,20 @@ using DropFiles;
 
 namespace FileSharing.ViewModels
 {
-    public class MainWindowViewModel : ObservableRecipient, IFilesDropped
+    public partial class MainWindowViewModel : ObservableObject, IFilesDropped
     {
-        private NotifyIconWrapper.NotifyRequestRecord? _notifyRequest;
-        private bool _showInTaskbar;
-        private WindowState _windowState;
+        private static readonly IPEndPoint _defaultServerAddress = new IPEndPoint(IPAddress.Parse("192.168.0.14"), 55000);
 
         private readonly Client _client;
         private readonly FilesFromServers _availableFiles;
         private readonly Downloads _downloads;
-
         private readonly Server _server;
         private readonly SharedFiles _sharedFiles;
         private readonly Uploads _uploads;
 
         public MainWindowViewModel()
         {
-            LoadedCommand = new RelayCommand(Loaded);
-            ClosingCommand = new RelayCommand<CancelEventArgs>(Closing);
-            NotifyCommand = new RelayCommand(() => Notify("Hello world!"));
-            NotifyIconOpenCommand = new RelayCommand(() => { WindowState = WindowState.Normal; });
-            NotifyIconExitCommand = new RelayCommand(ShutdownApp);
+            InitializeSystemTrayCommands();
 
             //client-side structures
             _client = new Client();
@@ -85,67 +78,6 @@ namespace FileSharing.ViewModels
             AddFileCommand = new RelayCommand(AddFile);
             ShowLocalPortCommand = new RelayCommand(ShowLocalPort);
         }
-
-        #region System tray related stuff
-        public ICommand LoadedCommand { get; }
-        public ICommand ClosingCommand { get; }
-        public ICommand NotifyCommand { get; }
-        public ICommand NotifyIconOpenCommand { get; }
-        public ICommand NotifyIconExitCommand { get; }
-
-        public WindowState WindowState
-        {
-            get => _windowState;
-            set
-            {
-                ShowInTaskbar = true;
-                SetProperty(ref _windowState, value);
-                ShowInTaskbar = value != WindowState.Minimized;
-            }
-        }
-
-        public bool ShowInTaskbar
-        {
-            get => _showInTaskbar;
-            set => SetProperty(ref _showInTaskbar, value);
-        }
-
-        public NotifyIconWrapper.NotifyRequestRecord? NotifyRequest
-        {
-            get => _notifyRequest;
-            set => SetProperty(ref _notifyRequest, value);
-        }
-
-        private void Notify(string message)
-        {
-            NotifyRequest = new NotifyIconWrapper.NotifyRequestRecord
-            {
-                Title = "Notify",
-                Text = message,
-                Duration = 1000
-            };
-        }
-
-        private void Loaded()
-        {
-            WindowState = WindowState.Normal;
-
-            StartApp();
-        }
-
-        private void Closing(CancelEventArgs? e)
-        {
-            if (e == null)
-            {
-                return;
-            }
-                
-            e.Cancel = true;
-            WindowState = WindowState.Minimized;
-
-            Debug.WriteLine("(Closing)");
-        }
-        #endregion
 
         #region View-model bindings
         public ICommand ConnectToServerCommand { get; }
@@ -476,7 +408,7 @@ namespace FileSharing.ViewModels
         private void ConnectToServer()
         {
             var addressDialog = new InputBoxUtils();
-            if (addressDialog.AskServerAddressAndPort(out IPEndPoint? address) &&
+            if (addressDialog.AskServerAddressAndPort(_defaultServerAddress, out IPEndPoint ? address) &&
                 address != null)
             {
                 _client.ConnectToServer(address);
@@ -1063,7 +995,7 @@ namespace FileSharing.ViewModels
             var portNumberDialog = new InputBoxUtils();
             do
             {
-                if (portNumberDialog.AskPort(out int portNumber))
+                if (portNumberDialog.AskPort(defaultPort, out int portNumber))
                 {
                     if (!IsPortOccupied(portNumber))
                     {
@@ -1129,5 +1061,77 @@ namespace FileSharing.ViewModels
             Application.Current.Shutdown();
         }
         #endregion
+    }
+
+    public partial class MainWindowViewModel
+    {
+        private NotifyIconWrapper.NotifyRequestRecord? _notifyRequest;
+        private bool _showInTaskbar;
+        private WindowState _windowState;
+
+        public ICommand? LoadedCommand { get; private set; }
+        public ICommand? ClosingCommand { get; private set; }
+        public ICommand? NotifyIconOpenCommand { get; private set; }
+        public ICommand? NotifyIconExitCommand { get; private set; }
+
+        public WindowState WindowState
+        {
+            get => _windowState;
+            set
+            {
+                ShowInTaskbar = true;
+                SetProperty(ref _windowState, value);
+                ShowInTaskbar = value != WindowState.Minimized;
+            }
+        }
+
+        public bool ShowInTaskbar
+        {
+            get => _showInTaskbar;
+            set => SetProperty(ref _showInTaskbar, value);
+        }
+
+        public NotifyIconWrapper.NotifyRequestRecord? NotifyRequest
+        {
+            get => _notifyRequest;
+            set => SetProperty(ref _notifyRequest, value);
+        }
+
+        private void Notify(string title, string message, int durationMs, System.Windows.Forms.ToolTipIcon icon)
+        {
+            NotifyRequest = new NotifyIconWrapper.NotifyRequestRecord
+            {
+                Title = title,
+                Text = message,
+                Duration = durationMs,
+                Icon = icon,
+            };
+        }
+
+        private void Loaded()
+        {
+            WindowState = WindowState.Normal;
+
+            StartApp();
+        }
+
+        private void Closing(CancelEventArgs? e)
+        {
+            if (e == null)
+            {
+                return;
+            }
+
+            e.Cancel = true;
+            WindowState = WindowState.Minimized;
+        }
+
+        private void InitializeSystemTrayCommands()
+        {
+            LoadedCommand = new RelayCommand(Loaded);
+            ClosingCommand = new RelayCommand<CancelEventArgs>(Closing);
+            NotifyIconOpenCommand = new RelayCommand(() => { WindowState = WindowState.Normal; });
+            NotifyIconExitCommand = new RelayCommand(ShutdownApp);
+        }
     }
 }

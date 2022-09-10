@@ -1,82 +1,81 @@
 ﻿<ResourceDictionary 
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="clr-namespace:FileSharing"
     xmlns:converters="clr-namespace:FileSharing.Converters">
 
-    <converters:BytesToMegabytesConverter x:Key="bytesToMegabytesConverter" />
-    <converters:ConnectionStatusConverter x:Key="connectionStatusConverter" />
-    <converters:DateTimeConverter x:Key="dateTimeConverter" />
-    <converters:DownloadSpeedConverter x:Key="downloadSpeedConverter" />
-    <converters:IPEndPointConverter x:Key="ipEndPointConverter" />
-    <converters:ProgressConverter x:Key="progressConverter" />
-    <converters:TimeSpanConverter x:Key="timeSpanConverter" />
-    <converters:EncryptedPeerConverter x:Key="encryptedPeerConverter" />
+    <converters:BytesToMegabytesConverter x:Key="BytesToMegabytesConverter"/>
+    <converters:ConnectionStatusConverter x:Key="ConnectionStatusConverter"/>
+    <converters:DateTimeConverter x:Key="DateTimeConverter"/>
+    <converters:DownloadSpeedConverter x:Key="DownloadSpeedConverter"/>
+    <converters:IPEndPointConverter x:Key="IpEndPointConverter"/>
+    <converters:ProgressConverter x:Key="ProgressConverter"/>
+    <converters:TimeSpanConverter x:Key="TimeSpanConverter"/>
+    <converters:EncryptedPeerConverter x:Key="EncryptedPeerConverter"/>
 
     <SolidColorBrush x:Key="ServerColor" Color="LightGreen" Opacity="0.5"/>
-    <SolidColorBrush x:Key="ClientColor" Color="Blue" Opacity="0.07"/>
+    <SolidColorBrush x:Key="ClientColor" Color="Blue" Opacity="0.1"/>
 
-    <Style x:Key="rectangleStyle" TargetType="Rectangle">
+    <Style x:Key="RectangleStyle" TargetType="Rectangle">
         <Setter Property="Width" Value="7" />
         <Setter Property="Height" Value="7" />
         <Setter Property="Fill" Value="Black" />
         <Setter Property="Margin" Value="5, 0, 5, 0" />
     </Style>
 
-    <Style x:Key="ellipseStyle" TargetType="Ellipse">
-        <Setter Property="Width" Value="5" />
-        <Setter Property="Height" Value="5" />
-        <Setter Property="Fill" Value="Black" />
-        <Setter Property="Margin" Value="5, 0, 5, 0" />
+    <Style x:Key="EllipseStyle" TargetType="Ellipse">
+        <Setter Property="Width" Value="5"/>
+        <Setter Property="Height" Value="5"/>
+        <Setter Property="Fill" Value="Black"/>
+        <Setter Property="Margin" Value="5, 0, 5, 0"/>
     </Style>
 
-    <Style x:Key="baseTextBlockStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="TextAlignment" Value="Left" />
-        <Setter Property="TextWrapping" Value="Wrap" />
+    <Style x:Key="BaseTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="TextAlignment" Value="Left"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
-    <Style x:Key="popUpTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="PopUpTextBlock" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
         <Setter Property="Visibility" Value="Collapsed"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding RelativeSource={RelativeSource 
-                    Mode=FindAncestor, 
-                    AncestorType={x:Type ListBoxItem}},
-                    Path=IsSelected}" 
-                    Value="True">
+                Mode=FindAncestor, 
+                AncestorType={x:Type ListBoxItem}},
+                Path=IsSelected}" 
+                Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="titleStyle" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
-        <Setter Property="FontSize" Value="18" />
+    <Style x:Key="TitleStyle" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+        <Setter Property="FontSize" Value="18"/>
     </Style>
 
-    <Style x:Key="tabControlStyle" TargetType="TabControl">
-        <Setter Property="Margin" Value="2" />
+    <Style x:Key="TabControlStyle" TargetType="TabControl">
+        <Setter Property="Margin" Value="2"/>
     </Style>
 
-    <Style x:Key="stackPanelStyle" TargetType="StackPanel">
-        <Setter Property="Margin" Value="2" />
-        <Setter Property="Orientation" Value="Horizontal" />
+    <Style x:Key="StackPanelStyle" TargetType="StackPanel">
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="Orientation" Value="Horizontal"/>
     </Style>
     
-    <Style x:Key="stackPanelInListBoxStyle" TargetType="StackPanel" BasedOn="{StaticResource stackPanelStyle}">
-        <Setter Property="Margin" Value="5" />
-        <Setter Property="Orientation" Value="Vertical" />
+    <Style x:Key="StackPanelInListBoxStyle" TargetType="StackPanel" BasedOn="{StaticResource StackPanelStyle}">
+        <Setter Property="Margin" Value="5"/>
+        <Setter Property="Orientation" Value="Vertical"/>
     </Style>
 
-    <Style x:Key="gridStyle" TargetType="Grid">
-        <Setter Property="Margin" Value="2" />
+    <Style x:Key="GridStyle" TargetType="Grid">
+        <Setter Property="Margin" Value="2"/>
     </Style>
 
-    <Style x:Key="baseButtonStyle" TargetType="Button">
-        <Setter Property="Margin" Value="5" />
-        <Setter Property="Padding" Value="5" />
+    <Style x:Key="BaseButtonStyle" TargetType="Button">
+        <Setter Property="Margin" Value="5"/>
+        <Setter Property="Padding" Value="5"/>
     </Style>
 
-    <Style x:Key="peerEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="PeerEncryptionStatus" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
         <Setter Property="Text" Value="❓ No encryption"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="True">
@@ -88,21 +87,21 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="popUpButtonStyle" TargetType="Button" BasedOn="{StaticResource baseButtonStyle}">
+    <Style x:Key="PopUpButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
         <Setter Property="HorizontalAlignment" Value="Left"/>
         <Setter Property="Visibility" Value="Collapsed"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding RelativeSource={RelativeSource 
-                    Mode=FindAncestor, 
-                    AncestorType={x:Type ListBoxItem}},
-                    Path=IsSelected}" 
+                Mode=FindAncestor, 
+                AncestorType={x:Type ListBoxItem}},
+                Path=IsSelected}" 
                 Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="cancellationStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="CancellationStatus" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
         <Setter Property="Text" Value="Cancelled"/>
         <Setter Property="Visibility" Value="Collapsed"/>
         <Setter Property="Foreground" Value="Blue" />
@@ -113,15 +112,15 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="cancellationButton" TargetType="Button" BasedOn="{StaticResource baseButtonStyle}">
+    <Style x:Key="CancellationButton" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
         <Setter Property="HorizontalAlignment" Value="Left"/>
         <Setter Property="Visibility" Value="Collapsed"/>
         <Setter Property="IsEnabled" Value="True"/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding RelativeSource={RelativeSource 
-                        Mode=FindAncestor, 
-                        AncestorType={x:Type ListBoxItem}},
-                        Path=IsSelected}" 
+                    Mode=FindAncestor, 
+                    AncestorType={x:Type ListBoxItem}},
+                    Path=IsSelected}" 
                     Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
@@ -136,19 +135,19 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="hashVerificationButton" TargetType="Button" BasedOn="{StaticResource baseButtonStyle}">
+    <Style x:Key="HashVerificationButton" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
         <Setter Property="HorizontalAlignment" Value="Left"/>
         <Setter Property="Visibility" Value="Collapsed"/>
         <Setter Property="IsEnabled" Value="False"/>
         <Style.Triggers>
             <MultiDataTrigger>
                 <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding IsDownloaded}" Value="True" />
+                    <Condition Binding="{Binding IsDownloaded}" Value="True"/>
                     <Condition Binding="{Binding RelativeSource={RelativeSource 
                         Mode=FindAncestor, 
                         AncestorType={x:Type ListBoxItem}},
                         Path=IsSelected}" 
-                        Value="True" />
+                        Value="True"/>
                 </MultiDataTrigger.Conditions>
                 <MultiDataTrigger.Setters>
                     <Setter Property="Visibility" Value="Visible"/>
@@ -166,7 +165,7 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="hashVerificationStatus" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="HashVerificationStatus" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
         <Setter Property="Text" Value="Hash verification in progress..."/>
         <Setter Property="Visibility" Value="Collapsed"/>
         <Setter Property="Foreground" Value="DarkBlue"/>
@@ -185,28 +184,28 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="finishTimeTextBlock" TargetType="TextBlock" BasedOn="{StaticResource baseTextBlockStyle}">
+    <Style x:Key="FinishTimeTextBlock" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
         <Setter Property="Visibility" Value="Collapsed"/>
         <Setter Property="Text" Value="Finish time"/>
         <Style.Triggers>
             <MultiDataTrigger>
                 <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding IsFinished}" Value="True" />
+                    <Condition Binding="{Binding IsFinished}" Value="True"/>
                     <Condition Binding="{Binding RelativeSource={RelativeSource 
                         Mode=FindAncestor, 
                         AncestorType={x:Type ListBoxItem}},
                         Path=IsSelected}" 
-                        Value="True" />
+                        Value="True"/>
                 </MultiDataTrigger.Conditions>
                 <MultiDataTrigger.Setters>
-                    <Setter Property="Text" Value="{Binding FinishTime, Converter={StaticResource dateTimeConverter}, StringFormat={}Finish time: {0}}"/>
+                    <Setter Property="Text" Value="{Binding FinishTime, Converter={StaticResource DateTimeConverter}, StringFormat={}Finish time: {0}}"/>
                     <Setter Property="Visibility" Value="Visible"/>
                 </MultiDataTrigger.Setters>
             </MultiDataTrigger>
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="hashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource popUpTextBlock}">
+    <Style x:Key="HashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource PopUpTextBlock}">
         <Setter Property="Text" Value="🔴 Calculating hash..."/>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsHashCalculated}" Value="True">

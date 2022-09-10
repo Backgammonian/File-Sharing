@@ -12,7 +12,7 @@
         LastChildFill="True"
         Margin="20">
         <Label
-            x:Name="_question"
+            x:Name="Question"
             DockPanel.Dock="Top"
             HorizontalContentAlignment="Center" 
             Content="Question:"/>
@@ -20,7 +20,7 @@
             DockPanel.Dock="Top"
             Height="20"/>
         <TextBox
-            x:Name="_answer" 
+            x:Name="UserAnswer" 
             DockPanel.Dock="Top"
             Text="Answer"/>
         <Label
@@ -30,7 +30,7 @@
             Width="130"
             HorizontalAlignment="Right">
             <Button
-                Click="OkClick"
+                Click="OnOkClicked"
                 IsDefault="True"
                 MinWidth="60" 
                 Content="Ok"/>

@@ -9,7 +9,7 @@ namespace FileSharing.Models
     {
         private readonly FileStream _stream;
         private bool _isHashCalculated;
-        private string _hash;
+        private string _hash = string.Empty;
 
         public SharedFile(long index, string path)
         {
