@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Windows;
 using System.Globalization;
 using System.Windows.Data;
 using LiteNetLib;
@@ -16,7 +15,7 @@ namespace FileSharing.Converters
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return DependencyProperty.UnsetValue;
+            return Binding.DoNothing;
         }
     }
 }

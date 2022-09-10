@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Windows;
 using System.Globalization;
 using System.Windows.Data;
+using Extensions;
 
 namespace FileSharing.Converters
 {
@@ -9,33 +9,13 @@ namespace FileSharing.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var downloadSpeed = (double)value;
-            return SizeSuffix(System.Convert.ToInt64(downloadSpeed)) + "/s";
+            var downloadSpeed = System.Convert.ToInt64((double)value);
+            return downloadSpeed.GetSizeSuffix() + "/s";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return DependencyProperty.UnsetValue;
-        }
-
-        private readonly string[] _sizeSuffixes = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
-
-        private string SizeSuffix(long value, int decimalPlaces = 1)
-        {
-            if (value < 0)
-            {
-                return "-" + SizeSuffix(-value, decimalPlaces);
-            }
-
-            int i = 0;
-            decimal dValue = value;
-            while (decimal.Round(dValue, decimalPlaces) >= 1000)
-            {
-                dValue /= 1024;
-                i++;
-            }
-
-            return string.Format("{0:n" + decimalPlaces + "} {1}", dValue, _sizeSuffixes[i]);
+            return Binding.DoNothing;
         }
     }
 }

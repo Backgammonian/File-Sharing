@@ -12,7 +12,7 @@ namespace FileSharing.Models
         private DateTime _startTime;
         private DateTime _finishTime;
         private long _bytesSent;
-        private bool[] _fileSegmentsCheck;
+        private readonly bool[] _fileSegmentsCheck;
         private long _resendedFileSegments;
 
         public Upload(string id, string fileName, long fileSize, string fileHash, EncryptedPeer destination, long numberOfSegments)

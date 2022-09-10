@@ -12,7 +12,7 @@ namespace FileSharing.Models
 {
     public class Download : ObservableObject
     {
-        private FileStream _stream;
+        private FileStream? _stream;
         private decimal _progress;
         private bool _isDownloaded;
         private bool _isCancelled;
@@ -27,10 +27,10 @@ namespace FileSharing.Models
         private long _bytesDownloaded;
         private readonly DispatcherTimer _downloadSpeedCounter;
         private double _downloadSpeed;
-        private Queue<double> _downloadSpeedValues;
+        private readonly Queue<double> _downloadSpeedValues;
         private const double _interval = 100.0;
-        private bool[] _fileSegmentsCheck;
-        private long[] _incomingSegmentsChannelsStatistic;
+        private readonly bool[] _fileSegmentsCheck;
+        private readonly long[] _incomingSegmentsChannelsStatistic;
         private readonly DispatcherTimer _missingSegmentsTimer;
 
         public Download(SharedFileInfo availableFile, EncryptedPeer server, string path)
@@ -234,8 +234,12 @@ namespace FileSharing.Models
             _downloadSpeedCounter.Stop();
             _missingSegmentsTimer.Stop();
             _stopwatch.Stop();
-            _stream.Close();
-            _stream.Dispose();
+
+            if (_stream != null)
+            {
+                _stream.Close();
+                _stream.Dispose();
+            }
         }
 
         public bool TryWrite(long numOfSegment, byte[] segment, byte channel)
@@ -284,6 +288,13 @@ namespace FileSharing.Models
         {
             _missingSegmentsTimer.Stop();
             _missingSegmentsTimer.Start();
+
+            if (_stream == null)
+            {
+                Debug.WriteLine("stream is null!");
+
+                return;
+            }
 
             _stream.Seek(numOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
             _stream.Write(segment, 0, segment.Length);

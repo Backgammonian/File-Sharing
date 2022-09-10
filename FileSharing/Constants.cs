@@ -6,6 +6,6 @@ namespace FileSharing
     {
         public static int FileSegmentSize { get; } = Convert.ToInt32(Math.Pow(2, 13));
         public static byte ChannelsCount { get; } = 32;
-        public static int DisconnectionTimeout { get; } = 30000;
+        public static int DisconnectionTimeout { get; } = 15000;
     }
 }
