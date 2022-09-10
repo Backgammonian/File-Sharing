@@ -408,7 +408,7 @@ namespace FileSharing.ViewModels
         private void ConnectToServer()
         {
             var addressDialog = new InputBoxUtils();
-            if (addressDialog.AskServerAddressAndPort(_defaultServerAddress, out IPEndPoint ? address) &&
+            if (addressDialog.AskServerAddressAndPort(_defaultServerAddress, out IPEndPoint? address) &&
                 address != null)
             {
                 _client.ConnectToServer(address);
