@@ -6,7 +6,6 @@ using System.Net;
 using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Layers;
-using FileSharing.Models;
 
 namespace FileSharing.Networking
 {
@@ -16,7 +15,7 @@ namespace FileSharing.Networking
         private readonly XorEncryptLayer _xor;
         private readonly NetManager _client;
         private readonly EncryptedPeers _servers;
-        private readonly List<string> _expectedPeers; //IP:port
+        private readonly List<string> _expectedPeers; //list of IP:port
         private readonly Task _listenTask;
         private readonly CancellationTokenSource _tokenSource;
 
@@ -70,10 +69,12 @@ namespace FileSharing.Networking
                 _servers[serverID].IsSecurityEnabled)
             {
                 server = _servers[serverID];
+
                 return true;
             }
 
             server = null;
+
             return false;
         }
 
@@ -125,9 +126,11 @@ namespace FileSharing.Networking
 
             _listener.PeerConnectedEvent += peer =>
             {
-                if (_expectedPeers.Contains(peer.EndPoint.ToString()))
+                var peerString = peer.EndPoint.ToString();
+
+                if (_expectedPeers.Contains(peerString))
                 {
-                    Debug.WriteLine("(Client_PeerConnectedEvent) Receiving expected connection from server: {0}", peer.EndPoint);
+                    Debug.WriteLine($"(Client_PeerConnectedEvent) Receiving expected connection from server: {peer.EndPoint}");
 
                     _expectedPeers.Remove(peer.EndPoint.ToString());
 
@@ -137,7 +140,7 @@ namespace FileSharing.Networking
                 }
                 else
                 {
-                    Debug.WriteLine("(Client_PeerConnectedEvent_Error) Connection from UNKNOWN server: {0}, disconnecting...", peer.EndPoint);
+                    Debug.WriteLine($"(Client_PeerConnectedEvent_Error) Connection from UNKNOWN server: {peer.EndPoint}, disconnecting...");
 
                     peer.Disconnect();
                 }
@@ -147,16 +150,14 @@ namespace FileSharing.Networking
             {
                 _servers.Remove(peer.Id);
 
-                Debug.WriteLine("(Client_PeerDisconnectedEvent) Server {0} disconnected, info: {1}",
-                    peer.EndPoint,
-                    disconnectInfo.Reason);
+                Debug.WriteLine($"(Client_PeerDisconnectedEvent) Server {peer.EndPoint} disconnected, info: {disconnectInfo.Reason}");
             };
 
             _listener.NetworkReceiveEvent += (fromPeer, dataReader, deliveryMethod) =>
             {
                 if (dataReader.AvailableBytes == 0)
                 {
-                    Debug.WriteLine("(Client_NetworkReceiveEvent) Empty payload from " + fromPeer.EndPoint);
+                    Debug.WriteLine($"(Client_NetworkReceiveEvent) Empty payload from {fromPeer.EndPoint}");
 
                     return;
                 }
@@ -165,39 +166,28 @@ namespace FileSharing.Networking
                     _servers[fromPeer.Id].IsSecurityEnabled)
                 {
                     var data = _servers[fromPeer.Id].DecryptReceivedData(dataReader);
-
                     MessageReceived?.Invoke(this, new NetEventArgs(_servers[fromPeer.Id], data));
                 }
                 else
                 if (!_servers.Has(fromPeer.Id))
                 {
-                    Debug.WriteLine("(Client_NetworkReceiveEvent) No encrypted connection with this server: " + fromPeer.EndPoint);
+                    Debug.WriteLine($"(Client_NetworkReceiveEvent) No encrypted connection with this server: {fromPeer.EndPoint}");
                 }
                 else
-                if (!_servers[fromPeer.Id].IsSecurityEnabled)
+                if (!_servers[fromPeer.Id].IsSecurityEnabled &&
+                    dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
+                    dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                 {
-                    Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Trying to get keys from server " + fromPeer.EndPoint);
+                    _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
+                    ServerConnected?.Invoke(this, new EncryptedPeerEventArgs(fromPeer.Id));
 
-                    if (dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
-                        dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
-                    {
-                        _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
-
-                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys) Received keys from server " + fromPeer.EndPoint);
-
-                        ServerConnected?.Invoke(this, new EncryptedPeerEventArgs(fromPeer.Id));
-                    }
-                    else
-                    {
-                        Debug.WriteLine("(Client_NetworkReceiveEvent_Keys_Error) Couldn't get keys from server " + fromPeer.EndPoint);
-                    }
+                    Debug.WriteLine($"(Client_NetworkReceiveEvent_Keys) Received keys from server {fromPeer.EndPoint}");
                 }
                 else
                 {
-                    Debug.WriteLine("(Client_NetworkReceiveEvent) Unknown error with peer " +
-                        fromPeer.EndPoint + " " +
-                        "Server connected: " + _servers.Has(fromPeer.Id) + " " +
-                        (_servers.Has(fromPeer.Id) ? "Security: " + _servers[fromPeer.Id].IsSecurityEnabled : "no security"));
+                    Debug.WriteLine($"(Client_NetworkReceiveEvent) Unknown error with peer {fromPeer.EndPoint}" +
+                        $"Is connection established: {_servers.Has(fromPeer.Id)}, " +
+                        $"Security: {(_servers.Has(fromPeer.Id) ? _servers[fromPeer.Id].IsSecurityEnabled : "unknown")}");
                 }
 
                 dataReader.Recycle();

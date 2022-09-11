@@ -1,18 +1,19 @@
 ﻿using System;
 using System.Diagnostics;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
+using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
     public class Upload : ObservableObject
     {
+        private readonly bool[] _fileSegmentsCheck;
         private long _numberOfAckedSegments;
         private bool _isFinished;
         private bool _isCancelled;
         private DateTime _startTime;
         private DateTime _finishTime;
         private long _bytesSent;
-        private readonly bool[] _fileSegmentsCheck;
         private long _resendedFileSegments;
 
         public Upload(string id, string fileName, long fileSize, string fileHash, EncryptedPeer destination, long numberOfSegments)
@@ -44,6 +45,9 @@ namespace FileSharing.Models
         public string FileHash { get; }
         public EncryptedPeer Destination { get; }
         public long NumberOfSegments { get; }
+        public bool IsActive => !IsCancelled && !IsFinished;
+        public decimal Progress => NumberOfAckedSegments / Convert.ToDecimal(NumberOfSegments);
+        public double AverageSpeed => BytesSent / (DateTime.Now - StartTime).TotalSeconds;
 
         public long NumberOfAckedSegments
         {
@@ -95,10 +99,6 @@ namespace FileSharing.Models
             private set => SetProperty(ref _resendedFileSegments, value);
         }
 
-        public bool IsActive => !IsCancelled && !IsFinished;
-        public decimal Progress => NumberOfAckedSegments / Convert.ToDecimal(NumberOfSegments);
-        public double AverageSpeed => BytesSent / (DateTime.Now - StartTime).TotalSeconds;
-
         public void AddAck(long numOfSegment)
         {
             if (!IsActive)
@@ -109,14 +109,14 @@ namespace FileSharing.Models
             if (numOfSegment < 0 ||
                 numOfSegment >= NumberOfSegments)
             {
-                Debug.WriteLine("(Upload_AddAck) File " + FileName + ": wrong number of incoming file segment!");
+                Debug.WriteLine($"(Upload_AddAck) File {FileName}: wrong number of incoming file segment!");
 
                 return;
             }
 
             if (_fileSegmentsCheck[numOfSegment])
             {
-                Debug.WriteLine("(Upload_AddAck) File " + FileName + ": already sent segment " + numOfSegment + "!");
+                Debug.WriteLine($"(Upload_AddAck) File {FileName}: already sent segment {numOfSegment}!");
 
                 return;
             }

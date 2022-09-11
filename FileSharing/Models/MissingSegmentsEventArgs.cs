@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
@@ -13,9 +14,9 @@ namespace FileSharing.Models
             Server = server;
         }
 
-        public string DownloadID { get; set; }
-        public string FileHash { get; set; }
-        public List<long> NumbersOfMissingSegments { get; set; }
-        public EncryptedPeer Server { get; set; }
+        public string DownloadID { get; }
+        public string FileHash { get; }
+        public List<long> NumbersOfMissingSegments { get; }
+        public EncryptedPeer Server { get; }
     }
 }

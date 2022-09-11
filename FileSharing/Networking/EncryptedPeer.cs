@@ -3,108 +3,63 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
 using System.Collections.Generic;
+using Microsoft.Toolkit.Mvvm.ComponentModel;
 using LiteNetLib;
 using LiteNetLib.Utils;
-using Microsoft.Toolkit.Mvvm.ComponentModel;
 using FileSharing.Utils;
-using FileSharing.Modules;
 
-namespace FileSharing.Models
+namespace FileSharing.Networking
 {
     public class EncryptedPeer : ObservableObject
     {
-        private readonly CryptographyModule _cryptography;
-        private readonly DispatcherTimer _durationTimer;
-        private DateTime _startTime;
-        private TimeSpan _connectionDuration;
-        private readonly DispatcherTimer _disconnectTimer;
+        private const double _interval = 100.0;
         private const int _timeout = 30;
 
-        private const double _interval = 100.0;
+        private readonly CryptographyModule _cryptography;
+        private readonly DispatcherTimer _durationTimer;
+        private readonly DispatcherTimer _disconnectTimer;
+        private DateTime _startTime;
+        private TimeSpan _connectionDuration;
 
+        private readonly DispatcherTimer _downloadSpeedCounter;
+        private readonly Queue<double> _downloadSpeedValues;
         private long _oldAmountOfDownloadedBytes, _newAmountOfDownloadedBytes;
         private DateTime _oldDownloadTimeStamp, _newDownloadTimeStamp;
         private long _bytesDownloaded;
-        private readonly DispatcherTimer _downloadSpeedCounter;
         private double _downloadSpeed;
-        private readonly Queue<double> _downloadSpeedValues;
-
+        
+        private readonly DispatcherTimer _uploadSpeedCounter;
+        private readonly Queue<double> _uploadSpeedValues;
         private long _oldAmountOfUploadedBytes, _newAmountOfUploadedBytes;
         private DateTime _oldUploadTimeStamp, _newUploadTimeStamp;
         private long _bytesUploaded;
-        private readonly DispatcherTimer _uploadSpeedCounter;
         private double _uploadSpeed;
-        private readonly Queue<double> _uploadSpeedValues;
 
         public EncryptedPeer(NetPeer peer)
         {
             Peer = peer;
-            _cryptography = new CryptographyModule();
             StartTime = DateTime.Now;
+            _cryptography = new CryptographyModule();
             _durationTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _durationTimer.Interval = new TimeSpan(0, 0, 1);
-            _durationTimer.Tick += (s, e) =>
-            {
-                ConnectionDuration = DateTime.Now - StartTime;
-            };
+            _durationTimer.Tick += OnDurationTimerTick;
             _durationTimer.Start();
 
             _disconnectTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _disconnectTimer.Interval = new TimeSpan(0, 0, _timeout);
-            _disconnectTimer.Tick += (s, e) =>
-            {
-                _disconnectTimer.Stop();
-                if (!IsSecurityEnabled)
-                {
-                    Disconnect();
-                }
-            };
+            _disconnectTimer.Tick += OnDisconnectTimerTick;
             _disconnectTimer.Start();
 
             _downloadSpeedValues = new Queue<double>();
             _downloadSpeedCounter = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _downloadSpeedCounter.Interval = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(_interval));
-            _downloadSpeedCounter.Tick += (sender, e) =>
-            {
-                _oldAmountOfDownloadedBytes = _newAmountOfDownloadedBytes;
-                _newAmountOfDownloadedBytes = BytesDownloaded;
-
-                _oldDownloadTimeStamp = _newDownloadTimeStamp;
-                _newDownloadTimeStamp = DateTime.Now;
-
-                var value = (_newAmountOfDownloadedBytes - _oldAmountOfDownloadedBytes) / (_newDownloadTimeStamp - _oldDownloadTimeStamp).TotalSeconds;
-                _downloadSpeedValues.Enqueue(value);
-
-                if (_downloadSpeedValues.Count > 20)
-                {
-                    _downloadSpeedValues.Dequeue();
-                }
-
-                DownloadSpeed = CalculateMovingAverageDownloadSpeed();
-            };
+            _downloadSpeedCounter.Tick += OnDownloadSpeedCounterTick;
             _downloadSpeedCounter.Start();
 
             _uploadSpeedValues = new Queue<double>();
             _uploadSpeedCounter = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _uploadSpeedCounter.Interval = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(_interval));
-            _uploadSpeedCounter.Tick += (sender, e) =>
-            {
-                _oldAmountOfUploadedBytes = _newAmountOfUploadedBytes;
-                _newAmountOfUploadedBytes = BytesUploaded;
-
-                _oldUploadTimeStamp = _newUploadTimeStamp;
-                _newUploadTimeStamp = DateTime.Now;
-
-                var value = (_newAmountOfUploadedBytes - _oldAmountOfUploadedBytes) / (_newUploadTimeStamp - _oldUploadTimeStamp).TotalSeconds;
-                _uploadSpeedValues.Enqueue(value);
-
-                if (_uploadSpeedValues.Count > 20)
-                {
-                    _uploadSpeedValues.Dequeue();
-                }
-
-                UploadSpeed = CalculateMovingAverageUploadSpeed();
-            };
+            _uploadSpeedCounter.Tick += OnUploadSpeedCounterTick;
             _uploadSpeedCounter.Start();
         }
 
@@ -149,6 +104,58 @@ namespace FileSharing.Models
             private set => SetProperty(ref _uploadSpeed, value);
         }
 
+        private void OnUploadSpeedCounterTick(object? sender, EventArgs e)
+        {
+            _oldAmountOfUploadedBytes = _newAmountOfUploadedBytes;
+            _newAmountOfUploadedBytes = BytesUploaded;
+
+            _oldUploadTimeStamp = _newUploadTimeStamp;
+            _newUploadTimeStamp = DateTime.Now;
+
+            var value = (_newAmountOfUploadedBytes - _oldAmountOfUploadedBytes) / (_newUploadTimeStamp - _oldUploadTimeStamp).TotalSeconds;
+            _uploadSpeedValues.Enqueue(value);
+
+            if (_uploadSpeedValues.Count > 20)
+            {
+                _uploadSpeedValues.Dequeue();
+            }
+
+            UploadSpeed = CalculateMovingAverageUploadSpeed();
+        }
+
+        private void OnDownloadSpeedCounterTick(object? sender, EventArgs e)
+        {
+            _oldAmountOfDownloadedBytes = _newAmountOfDownloadedBytes;
+            _newAmountOfDownloadedBytes = BytesDownloaded;
+
+            _oldDownloadTimeStamp = _newDownloadTimeStamp;
+            _newDownloadTimeStamp = DateTime.Now;
+
+            var value = (_newAmountOfDownloadedBytes - _oldAmountOfDownloadedBytes) / (_newDownloadTimeStamp - _oldDownloadTimeStamp).TotalSeconds;
+            _downloadSpeedValues.Enqueue(value);
+
+            if (_downloadSpeedValues.Count > 20)
+            {
+                _downloadSpeedValues.Dequeue();
+            }
+
+            DownloadSpeed = CalculateMovingAverageDownloadSpeed();
+        }
+
+        private void OnDisconnectTimerTick(object? sender, EventArgs e)
+        {
+            _disconnectTimer.Stop();
+            if (!IsSecurityEnabled)
+            {
+                Disconnect();
+            }
+        }
+
+        private void OnDurationTimerTick(object? sender, EventArgs e)
+        {
+            ConnectionDuration = DateTime.Now - StartTime;
+        }
+
         private double CalculateMovingAverageDownloadSpeed()
         {
             var result = 0.0;
@@ -174,10 +181,10 @@ namespace FileSharing.Models
         public void SendPublicKeys()
         {
             var keys = new NetDataWriter();
-            var publicKey = _cryptography.PublicKey.ToArray();
+            var publicKey = _cryptography.PublicKey;
             keys.Put(publicKey.Length);
             keys.Put(publicKey);
-            var signaturePublicKey = _cryptography.SignaturePublicKey.ToArray();
+            var signaturePublicKey = _cryptography.SignaturePublicKey;
             keys.Put(signaturePublicKey.Length);
             keys.Put(signaturePublicKey);
 
@@ -200,7 +207,7 @@ namespace FileSharing.Models
         {
             if (!IsSecurityEnabled)
             {
-                Debug.WriteLine("(SendEncrypted) Encryption with peer " + Peer.EndPoint + " is not established!");
+                Debug.WriteLine($"(SendEncrypted) Encryption with peer {Peer.EndPoint} is not established!");
 
                 return;
             }
@@ -217,15 +224,14 @@ namespace FileSharing.Models
                 sentMessage.Put(iv.Length);
                 sentMessage.Put(iv);
 
-                Debug.WriteLine("(SendEncrypted) Length of sent data: " + sentMessage.Length);
+                Debug.WriteLine($"(SendEncrypted) Length of sent data: {sentMessage.Length}");
 
                 BytesUploaded += sentMessage.Length;
-
                 Peer.Send(sentMessage.Get(), channelNumber, DeliveryMethod.ReliableOrdered);
             }
             else
             {
-                Debug.WriteLine("(SendEncrypted_Error) Can't send an encrypted message to " + Peer.EndPoint);
+                Debug.WriteLine($"(SendEncrypted_Error) Can't send an encrypted message to {Peer.EndPoint}");
             }
         }
 
@@ -238,7 +244,7 @@ namespace FileSharing.Models
         {
             if (!IsSecurityEnabled)
             {
-                Debug.WriteLine("(DecryptReceivedData) Encryption is not established! " + Peer.EndPoint);
+                Debug.WriteLine($"(DecryptReceivedData) Encryption with {Peer.EndPoint} is not established!");
 
                 return new NetDataReader(Array.Empty<byte>());
             }
@@ -252,7 +258,7 @@ namespace FileSharing.Models
                 _cryptography.TryDecrypt(encryptedMessage, iv, out byte[] decryptedMessage) &&
                 decryptedMessage.TryDecompressByteArray(out byte[] data))
             {
-                Debug.WriteLine("(DecryptReceivedData) Length of decrypted data: " + messageLength);
+                Debug.WriteLine($"(DecryptReceivedData) Length of decrypted data: {messageLength}");
 
                 BytesDownloaded += messageLength;
 
@@ -260,7 +266,7 @@ namespace FileSharing.Models
             }
             else
             {
-                Debug.WriteLine("(DecryptReceivedData_Error) Can't decrypt received message from " + Peer.EndPoint);
+                Debug.WriteLine($"(DecryptReceivedData_Error) Can't decrypt received message from {Peer.EndPoint}");
 
                 return new NetDataReader(Array.Empty<byte>());
             }

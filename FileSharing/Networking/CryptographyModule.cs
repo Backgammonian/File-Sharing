@@ -1,9 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Security.Cryptography;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 
-namespace FileSharing.Modules
+namespace FileSharing.Networking
 {
     public class CryptographyModule : ObservableObject
     {
@@ -29,14 +30,14 @@ namespace FileSharing.Modules
             IsEnabled = false;
         }
 
+        public byte[] PublicKey => (byte[])_publicKey.Clone();
+        public byte[] SignaturePublicKey => (byte[])_signaturePublicKey.Clone();
+
         public bool IsEnabled
         {
             get => _isEnabled;
             private set => SetProperty(ref _isEnabled, value);
         }
-
-        public ReadOnlySpan<byte> PublicKey => new ReadOnlySpan<byte>(_publicKey);
-        public ReadOnlySpan<byte> SignaturePublicKey => new ReadOnlySpan<byte>(_signaturePublicKey);
 
         public void SetKeys(byte[] publicKey, byte[] signaturePublicKey)
         {
@@ -149,22 +150,19 @@ namespace FileSharing.Modules
             IsEnabled = false;
         }
 
-        public static bool TryComputeFileHash(string path, out string fileHash)
+        public static async Task<string> ComputeFileHash(string path)
         {
             try
             {
                 using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 10 * 1024 * 1024);
                 using var sha = SHA256.Create();
-                byte[] hash = sha.ComputeHash(fs);
-                fileHash = BitConverter.ToString(hash).ToLower().Replace("-", "");
+                var hash = await sha.ComputeHashAsync(fs);
 
-                return true;
+                return BitConverter.ToString(hash).ToLower().Replace("-", "");
             }
             catch (Exception)
             {
-                fileHash = "";
-
-                return false;
+                return string.Empty;
             }
         }
     }

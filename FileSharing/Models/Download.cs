@@ -6,12 +6,20 @@ using System.Collections.Generic;
 using System.Windows;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using FileSharing.Utils;
-using FileSharing.Modules;
+using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
     public class Download : ObservableObject
     {
+        private const double _interval = 100.0;
+
+        private readonly Stopwatch _stopwatch;
+        private readonly Queue<double> _downloadSpeedValues;
+        private readonly bool[] _fileSegmentsCheck;
+        private readonly long[] _incomingSegmentsChannelsStatistic;
+        private readonly DispatcherTimer _downloadSpeedCounter;
+        private readonly DispatcherTimer _missingSegmentsTimer;
         private FileStream? _stream;
         private decimal _progress;
         private bool _isDownloaded;
@@ -21,24 +29,17 @@ namespace FileSharing.Models
         private bool _isHashVerificationResultPositive;
         private bool _isHashVerificationResultNegative;
         private double _averageSpeed;
-        private readonly Stopwatch _stopwatch;
         private long _oldAmountOfDownloadedBytes, _newAmountOfDownloadedBytes;
         private DateTime _oldDownloadTimeStamp, _newDownloadTimeStamp;
         private long _bytesDownloaded;
-        private readonly DispatcherTimer _downloadSpeedCounter;
         private double _downloadSpeed;
-        private readonly Queue<double> _downloadSpeedValues;
-        private const double _interval = 100.0;
-        private readonly bool[] _fileSegmentsCheck;
-        private readonly long[] _incomingSegmentsChannelsStatistic;
-        private readonly DispatcherTimer _missingSegmentsTimer;
 
         public Download(SharedFileInfo availableFile, EncryptedPeer server, string path)
         {
             ID = RandomGenerator.GetRandomString(20);
             OriginalName = availableFile.Name;
-            Name = System.IO.Path.GetFileName(path);
-            Path = path;
+            Name = Path.GetFileName(path);
+            FilePath = path;
             Size = availableFile.Size;
             NumberOfSegments = availableFile.NumberOfSegments;
             Hash = availableFile.Hash;
@@ -56,55 +57,15 @@ namespace FileSharing.Models
 
             _stopwatch = new Stopwatch();
             _downloadSpeedValues = new Queue<double>();
+            _incomingSegmentsChannelsStatistic = new long[Constants.ChannelsCount];
+
             _downloadSpeedCounter = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _downloadSpeedCounter.Interval = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(_interval));
-            _downloadSpeedCounter.Tick += (sender, e) =>
-            {
-                _oldAmountOfDownloadedBytes = _newAmountOfDownloadedBytes;
-                _newAmountOfDownloadedBytes = BytesDownloaded;
-
-                _oldDownloadTimeStamp = _newDownloadTimeStamp;
-                _newDownloadTimeStamp = DateTime.Now;
-
-                var value = (_newAmountOfDownloadedBytes - _oldAmountOfDownloadedBytes) / (_newDownloadTimeStamp - _oldDownloadTimeStamp).TotalSeconds;
-                _downloadSpeedValues.Enqueue(value);
-
-                if (_downloadSpeedValues.Count > 20)
-                {
-                    _downloadSpeedValues.Dequeue();
-                }
-
-                var seconds = _stopwatch.Elapsed.Seconds > 0 ? _stopwatch.Elapsed.Seconds : 0.01;
-                AverageSpeed = BytesDownloaded / Convert.ToDouble(seconds);
-
-                DownloadSpeed = CalculateMovingAverageDownloadSpeed();
-            };
-
-            _incomingSegmentsChannelsStatistic = new long[Constants.ChannelsCount];
+            _downloadSpeedCounter.Tick += OnDownloadSpeedCounterTick;
 
             _missingSegmentsTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _missingSegmentsTimer.Interval = new TimeSpan(0, 0, 0, 0, Constants.DisconnectionTimeout / 2);
-            _missingSegmentsTimer.Tick += (s, e) =>
-            {
-                if (!IsActive)
-                {
-                    _missingSegmentsTimer.Stop();
-                    return;
-                }
-
-                var numbersOfMissingSegments = new List<long>();
-                for (long i = 0; i < _fileSegmentsCheck.Length; i++)
-                {
-                    if (!_fileSegmentsCheck[i])
-                    {
-                        numbersOfMissingSegments.Add(i);
-                    }
-                }
-
-                Debug.WriteLine("(Download_MissingSegmentsTimer) Requesting " + numbersOfMissingSegments.Count + " segments");
-
-                MissingSegmentsRequested?.Invoke(this, new MissingSegmentsEventArgs(ID, Hash, numbersOfMissingSegments, Server));
-            };
+            _missingSegmentsTimer.Tick += OnMissingSegmentsTimerTick;
             _missingSegmentsTimer.Start();
         }
 
@@ -114,7 +75,7 @@ namespace FileSharing.Models
         public string ID { get; }
         public string OriginalName { get; }
         public string Name { get; }
-        public string Path { get; }
+        public string FilePath { get; }
         public long Size { get; }
         public long NumberOfSegments { get; }
         public string Hash { get; }
@@ -197,7 +158,51 @@ namespace FileSharing.Models
             get => _progress;
             private set => SetProperty(ref _progress, value);
         }
-    
+
+        private void OnMissingSegmentsTimerTick(object? sender, EventArgs e)
+        {
+            if (!IsActive)
+            {
+                _missingSegmentsTimer.Stop();
+                return;
+            }
+
+            var numbersOfMissingSegments = new List<long>();
+            for (long i = 0; i < _fileSegmentsCheck.Length; i++)
+            {
+                if (!_fileSegmentsCheck[i])
+                {
+                    numbersOfMissingSegments.Add(i);
+                }
+            }
+
+            MissingSegmentsRequested?.Invoke(this, new MissingSegmentsEventArgs(ID, Hash, numbersOfMissingSegments, Server));
+
+            Debug.WriteLine($"(Download_MissingSegmentsTimer) Requesting {numbersOfMissingSegments.Count} segments");
+        }
+
+        private void OnDownloadSpeedCounterTick(object? sender, EventArgs e)
+        {
+            _oldAmountOfDownloadedBytes = _newAmountOfDownloadedBytes;
+            _newAmountOfDownloadedBytes = BytesDownloaded;
+
+            _oldDownloadTimeStamp = _newDownloadTimeStamp;
+            _newDownloadTimeStamp = DateTime.Now;
+
+            var value = (_newAmountOfDownloadedBytes - _oldAmountOfDownloadedBytes) / (_newDownloadTimeStamp - _oldDownloadTimeStamp).TotalSeconds;
+            _downloadSpeedValues.Enqueue(value);
+
+            if (_downloadSpeedValues.Count > 20)
+            {
+                _downloadSpeedValues.Dequeue();
+            }
+
+            var seconds = _stopwatch.Elapsed.Seconds > 0 ? _stopwatch.Elapsed.Seconds : 0.01;
+            AverageSpeed = BytesDownloaded / Convert.ToDouble(seconds);
+
+            DownloadSpeed = CalculateMovingAverageDownloadSpeed();
+        }
+
         private double CalculateMovingAverageDownloadSpeed()
         {
             var result = 0.0;
@@ -215,7 +220,7 @@ namespace FileSharing.Models
             {
                 _downloadSpeedCounter.Start();
                 _stopwatch.Start();
-                _stream = File.OpenWrite(Path);
+                _stream = File.OpenWrite(FilePath);
 
                 return true;
             }
@@ -334,7 +339,7 @@ namespace FileSharing.Models
 
             try
             {
-                File.Delete(Path);
+                File.Delete(FilePath);
 
                 FileRemoved?.Invoke(this, EventArgs.Empty);
             }
@@ -378,7 +383,7 @@ namespace FileSharing.Models
 
         private bool TryComputeHashOfFile(out bool result)
         {
-            if (CryptographyModule.TryComputeFileHash(Path, out string calculatedHash))
+            if (CryptographyModule.TryComputeFileHash(FilePath, out string calculatedHash))
             {
                 result = calculatedHash == Hash;
 

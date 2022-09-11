@@ -1,14 +1,14 @@
 ﻿using System;
 
-namespace FileSharing.Models
+namespace FileSharing.Networking
 {
     public class EncryptedPeerEventArgs : EventArgs
     {
-        public int PeerID { get; set; }
-
         public EncryptedPeerEventArgs(int peerID)
         {
             PeerID = peerID;
         }
+
+        public int PeerID { get; }
     }
 }

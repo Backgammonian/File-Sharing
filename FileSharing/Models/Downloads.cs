@@ -18,13 +18,13 @@ namespace FileSharing.Models
         public event EventHandler<EventArgs>? DownloadsListUpdated;
         public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
 
+        public IEnumerable<Download> DownloadsList => _downloads.Values;
+
         public Download this[string downloadID]
         {
             get => _downloads[downloadID];
             private set => _downloads[downloadID] = value;
         }
-
-        public IEnumerable<Download> DownloadsList => _downloads.Values;
 
         public bool HasDownload(string downloadID)
         {
@@ -33,36 +33,26 @@ namespace FileSharing.Models
 
         public void AddDownload(Download download)
         {
-            if (!HasDownload(download.ID))
+            if (!HasDownload(download.ID) &&
+                download.TryOpenFile() &&
+                _downloads.TryAdd(download.ID, download))
             {
-                if (!download.TryOpenFile())
-                {
-                    return;
-                }
-
-                if (_downloads.TryAdd(download.ID, download))
-                {
-                    _downloads[download.ID].FileRemoved += OnFileRemoved;
-                    _downloads[download.ID].MissingSegmentsRequested += OnMissingFileSegmentsRequested;
-
-                    DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
-                }
+                _downloads[download.ID].FileRemoved += OnFileRemoved;
+                _downloads[download.ID].MissingSegmentsRequested += OnMissingFileSegmentsRequested;
+                DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
             }
         }
 
         public void RemoveDownload(string downloadID)
         {
-            if (HasDownload(downloadID))
+            if (HasDownload(downloadID) &&
+                _downloads.TryRemove(downloadID, out Download? removedDownload) &&
+                removedDownload != null)
             {
-                if (_downloads.TryRemove(downloadID, out Download? removedDownload) &&
-                    removedDownload != null)
-                {
-                    removedDownload.ShutdownFile();
-                    removedDownload.FileRemoved -= OnFileRemoved;
-                    removedDownload.MissingSegmentsRequested -= OnMissingFileSegmentsRequested;
-
-                    DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
-                }
+                removedDownload.ShutdownFile();
+                removedDownload.FileRemoved -= OnFileRemoved;
+                removedDownload.MissingSegmentsRequested -= OnMissingFileSegmentsRequested;
+                DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -87,7 +77,8 @@ namespace FileSharing.Models
             }
             catch (Exception)
             {
-                downloadID = "";
+                downloadID = string.Empty;
+
                 return false;
             }
         }

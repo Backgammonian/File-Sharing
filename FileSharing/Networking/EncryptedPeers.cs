@@ -6,7 +6,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.Net;
 
-namespace FileSharing.Models
+namespace FileSharing.Networking
 {
     public class EncryptedPeers : IEnumerable<EncryptedPeer>
     {
@@ -49,30 +49,24 @@ namespace FileSharing.Models
 
         public void Add(EncryptedPeer cryptoPeer)
         {
-            if (!Has(cryptoPeer.Peer.Id))
+            if (!Has(cryptoPeer.Peer.Id) &&
+                _cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer))
             {
-                if (_cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer))
-                {
-                    Debug.WriteLine("(CryptoPeers_Add) Adding peer " + cryptoPeer.Peer.EndPoint + " with id " + cryptoPeer.Peer.Id);
+                _cryptoPeers[cryptoPeer.Peer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
+                PeerAdded?.Invoke(this, new EncryptedPeerEventArgs(cryptoPeer.Peer.Id));
 
-                    _cryptoPeers[cryptoPeer.Peer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
-
-                    PeerAdded?.Invoke(this, new EncryptedPeerEventArgs(cryptoPeer.Peer.Id));
-                }
+                Debug.WriteLine($"(CryptoPeers_Add) Adding peer {cryptoPeer.Peer.EndPoint} with id {cryptoPeer.Peer.Id}");
             }
         }
 
         public void Remove(int peerID)
         {
-            if (Has(peerID))
+            if (Has(peerID) &&
+                _cryptoPeers.TryRemove(peerID, out EncryptedPeer? removedPeer) &&
+                removedPeer != null)
             {
-                if (_cryptoPeers.TryRemove(peerID, out EncryptedPeer? removedPeer) &&
-                    removedPeer != null)
-                {
-                    removedPeer.PeerDisconnected -= OnCryptoPeerDisconnected;
-
-                    PeerRemoved?.Invoke(this, new EncryptedPeerEventArgs(peerID));
-                }
+                removedPeer.PeerDisconnected -= OnCryptoPeerDisconnected;
+                PeerRemoved?.Invoke(this, new EncryptedPeerEventArgs(peerID));
             }
         }
 
