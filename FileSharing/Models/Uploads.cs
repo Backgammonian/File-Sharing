@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +8,7 @@ namespace FileSharing.Models
     public class Uploads
     {
         //<upload ID, upload info>
-        private ConcurrentDictionary<string, Upload> _uploads;
+        private readonly ConcurrentDictionary<string, Upload> _uploads;
 
         public Uploads()
         {
@@ -19,13 +18,13 @@ namespace FileSharing.Models
         public event EventHandler<UploadEventArgs>? UploadAdded;
         public event EventHandler<UploadEventArgs>? UploadRemoved;
 
+        public IEnumerable<Upload> UploadsList => _uploads.Values;
+
         public Upload this[string id]
         {
             get => _uploads[id];
             private set => _uploads[id] = value;
         }
-
-        public IEnumerable<Upload> UploadsList => _uploads.Values;
 
         public bool Has(string uploadID)
         {
@@ -46,7 +45,6 @@ namespace FileSharing.Models
                 removedUpload != null)
             {
                 removedUpload.Cancel();
-
                 UploadRemoved?.Invoke(this, new UploadEventArgs(removedUpload.ID));
             }
         }
@@ -63,9 +61,9 @@ namespace FileSharing.Models
 
         public List<Upload> GetAllUploadsOfFile(string fileHash)
         {
-            return _uploads.Values.
-                Where(upload => upload.FileHash == fileHash).
-                ToList();
+            return _uploads.Values
+                .Where(upload => upload.FileHash == fileHash)
+                .ToList();
         }
     }
 }

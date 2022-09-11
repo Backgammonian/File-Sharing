@@ -20,11 +20,11 @@ using FileSharing.Models;
 using FileSharing.Networking;
 using FileSharing.Utils;
 using InputBox;
-using DropFiles;
+using Behaviours;
 
 namespace FileSharing.ViewModels
 {
-    public partial class MainWindowViewModel : ObservableObject, IFilesDropped
+    public partial class MainWindowViewModel : ObservableObject
     {
         private static readonly IPEndPoint _defaultServerAddress = new IPEndPoint(IPAddress.Parse("192.168.0.14"), 55000);
 
@@ -39,7 +39,6 @@ namespace FileSharing.ViewModels
         {
             InitializeSystemTrayCommands();
 
-            //client-side structures
             _client = new Client();
             _client.ServerAdded += OnServerAdded;
             _client.ServerConnected += OnServerConnected;
@@ -51,7 +50,6 @@ namespace FileSharing.ViewModels
             _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
             _downloads.MissingSegmentsRequested += OnMissingFileSegmentsRequested;
 
-            //client-side commands
             ConnectToServerCommand = new RelayCommand(ConnectToServer);
             DownloadFileCommand = new RelayCommand<SharedFileInfo>(DownloadFile);
             CancelDownloadCommand = new RelayCommand<Download>(CancelDownload);
@@ -59,7 +57,6 @@ namespace FileSharing.ViewModels
             DisconnectFromServerCommand = new RelayCommand<EncryptedPeer>(DisconnectFromServer);
             VerifyFileHashCommand = new RelayCommand<Download>(VerifyFileHash);
 
-            //server-side structures
             _server = new Server();
             _server.ClientAdded += OnClientAdded;
             _server.ClientRemoved += OnClientRemoved;
@@ -73,9 +70,9 @@ namespace FileSharing.ViewModels
             _uploads.UploadAdded += OnUploadAdded;
             _uploads.UploadRemoved += OnUploadRemoved;
 
-            //server-side commands
             RemoveSharedFileCommand = new RelayCommand<SharedFile>(RemoveSharedFile);
-            AddFileCommand = new RelayCommand(AddFile);
+            AddFileCommand = new AsyncRelayCommand(AddFile);
+            GetFileToShareCommand = new AsyncRelayCommand<FilesDroppedEventArgs?>(GetFileToShare);
             ShowLocalPortCommand = new RelayCommand(ShowLocalPort);
         }
 
@@ -89,6 +86,7 @@ namespace FileSharing.ViewModels
         public ICommand AddFileCommand { get; }
         public ICommand ShowLocalPortCommand { get; }
         public ICommand VerifyFileHashCommand { get; }
+        public ICommand GetFileToShareCommand { get; }
         public ObservableCollection<SharedFileInfo> AvailableFiles => new ObservableCollection<SharedFileInfo>(_availableFiles.List);
         public ObservableCollection<Download> Downloads => new ObservableCollection<Download>(_downloads.DownloadsList);
         public ObservableCollection<EncryptedPeer> Servers => new ObservableCollection<EncryptedPeer>(_client.Servers);
@@ -276,7 +274,7 @@ namespace FileSharing.ViewModels
             var reader = e.Message;
             var client = e.CryptoPeer;
 
-            byte typeByte = 0;
+            byte typeByte;
             if (!reader.TryGetByte(out typeByte))
             {
                 return;
@@ -473,7 +471,7 @@ namespace FileSharing.ViewModels
             Debug.WriteLine("(DownloadFile) Path: " + saveFileDialog.FileName);
 
             var newDownload = new Download(file, server, saveFileDialog.FileName);
-            if (_downloads.HasDownloadWithSamePath(newDownload.Path, out string downloadID))
+            if (_downloads.HasDownloadWithSamePath(newDownload.FilePath, out string downloadID))
             {
                 var confirmDownloadRestart = MessageBox.Show("File '" + file.Name + "' is already downloading! Do you want to restart download of this file?",
                     "Restart Download Confirmation",
@@ -488,7 +486,7 @@ namespace FileSharing.ViewModels
                 }
             }
             else
-            if (File.Exists(newDownload.Path))
+            if (File.Exists(newDownload.FilePath))
             {
                 var confirmDownloadRepeat = MessageBox.Show("File '" + file.Name + "' already exists. Do you want to download this file again?",
                     "Download Confirmation",
@@ -557,9 +555,9 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!File.Exists(download.Path))
+            if (!File.Exists(download.FilePath))
             {
-                MessageBox.Show("File '" + download.Name + "' was removed or deleted.",
+                MessageBox.Show($"File '{download.Name}' was removed or deleted.",
                     "File not found",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -567,7 +565,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            string argument = "/select, \"" + download.Path + "\"";
+            var argument = $"/select, \"{download.FilePath}\"";
             Process.Start("explorer.exe", argument);
         }
 
@@ -616,26 +614,32 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void AddFile()
+        private async Task AddFile()
         {
             var openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "All files(*.*)|*.*";
             openFileDialog.Title = "Select file to share";
             if (openFileDialog.ShowDialog() == true)
             {
-                _sharedFiles.AddFile(openFileDialog.FileName);
+                await _sharedFiles.AddFile(openFileDialog.FileName);
             }
         }
 
-        public void OnFilesDropped(string[] files)
+        private async Task GetFileToShare(FilesDroppedEventArgs? args)
         {
-            foreach (var file in files)
+            if (args == null ||
+                args.FilesPath.Length == 0)
+            {
+                return;
+            }
+
+            foreach (var file in args.FilesPath)
             {
                 if (File.Exists(file))
                 {
                     Debug.WriteLine("(OnFilesDropped) Dragging file: " + file);
 
-                    _sharedFiles.AddFile(file);
+                    await _sharedFiles.AddFile(file);
                 }
             }
         }
@@ -667,7 +671,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!File.Exists(download.Path))
+            if (!File.Exists(download.FilePath))
             {
                 MessageBox.Show("Unable to verify hash of file '" + download.Name + "' because it was removed or deleted!",
                     "File not found error",
@@ -730,6 +734,11 @@ namespace FileSharing.ViewModels
                 !_uploads.Has(uploadID))
             {
                 var desiredFile = _sharedFiles.GetByHash(fileHash);
+                if (desiredFile == null)
+                {
+                    return;
+                }
+
                 var upload = new Upload(
                     uploadID,
                     desiredFile.Name,
@@ -762,6 +771,10 @@ namespace FileSharing.ViewModels
                 _sharedFiles.HasFileAvailable(_uploads[uploadID].FileHash))
             {
                 var file = _sharedFiles.GetByHash(_uploads[uploadID].FileHash);
+                if (file == null)
+                {
+                    return;
+                }
 
                 if (file.TryReadSegment(numberOfSegment, out byte[] segment))
                 {
@@ -787,6 +800,10 @@ namespace FileSharing.ViewModels
                 _sharedFiles.HasFileAvailable(fileHash))
             {
                 var file = _sharedFiles.GetByHash(fileHash);
+                if (file == null)
+                {
+                    return;
+                }
 
                 if (file.TryReadSegment(numberOfSegment, out byte[] segment))
                 {

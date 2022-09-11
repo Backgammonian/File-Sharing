@@ -2,20 +2,18 @@
 {
     public class Indexer
     {
-        private long _currentIndex;
-
         public Indexer()
         {
-            _currentIndex = -1;
+            CurrentIndex = 0;
         }
 
-        public long CurrentIndex => _currentIndex;
+        public long CurrentIndex { get; private set; }
 
         public long GetNewIndex()
         {
-            _currentIndex += 1;
-            _currentIndex = _currentIndex == long.MaxValue ? 0 : _currentIndex;
-            return _currentIndex;
+            CurrentIndex += 1;
+            CurrentIndex = CurrentIndex == long.MaxValue ? 0 : CurrentIndex;
+            return CurrentIndex;
         }
     }
 }

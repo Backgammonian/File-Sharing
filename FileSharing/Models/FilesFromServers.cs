@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using LiteNetLib;
+using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
@@ -34,36 +33,30 @@ namespace FileSharing.Models
 
         public void AddServer(EncryptedPeer server)
         {
-            if (!HasServer(server.Peer.Id))
+            if (!HasServer(server.Peer.Id) &&
+                _filesFromServers.TryAdd(server.Peer.Id, new FilesFromServer(server)))
             {
-                if (_filesFromServers.TryAdd(server.Peer.Id, new FilesFromServer(server)))
-                {
-                    _filesFromServers[server.Peer.Id].ListUpdated += OnFileListUpdated;
-
-                    FilesUpdated?.Invoke(this, EventArgs.Empty);
-                }
+                _filesFromServers[server.Peer.Id].ListUpdated += OnFileListUpdated;
+                FilesUpdated?.Invoke(this, EventArgs.Empty);
             }
         }
 
         public void RemoveServer(int serverID)
         {
-            if (HasServer(serverID))
+            if (HasServer(serverID) &&
+                _filesFromServers.TryRemove(serverID, out FilesFromServer? removedList) &&
+                removedList != null)
             {
-                _filesFromServers[serverID].Clear();
-
-                if (_filesFromServers.TryRemove(serverID, out FilesFromServer? removedList) &&
-                    removedList != null)
-                {
-                    removedList.ListUpdated -= OnFileListUpdated;
-
-                    FilesUpdated?.Invoke(this, EventArgs.Empty);
-                }
+                removedList.Clear();
+                removedList.ListUpdated -= OnFileListUpdated;
+                FilesUpdated?.Invoke(this, EventArgs.Empty);
             }
         }
 
         private void OnFileListUpdated(object? sender, EventArgs e)
         {
             List.Clear();
+
             foreach (var serverFilesList in _filesFromServers.Values)
             {
                 var files = serverFilesList.Files;

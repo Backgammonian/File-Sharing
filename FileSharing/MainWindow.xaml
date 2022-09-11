@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:bh="http://schemas.microsoft.com/xaml/behaviors"
-        xmlns:dropFiles="clr-namespace:DropFiles"
+        xmlns:localBehaviours="clr-namespace:Behaviours"
         xmlns:viewModels="clr-namespace:FileSharing.ViewModels"
         xmlns:tray="clr-namespace:SystemTrayApp.WPF"
         mc:Ignorable="d"
@@ -74,10 +74,11 @@
                                 </TabItem.Header>
                                 <TabItem.Content>
                                     <ListBox
-                                        dropFiles:DropFilesBehaviorExtension.IsEnabled="True"
                                         Background="{StaticResource ServerColor}"
                                         ItemsSource="{Binding SharedFiles}"
-                                        SelectedItem="{Binding SelectedSharedFile}">
+                                        SelectedItem="{Binding SelectedSharedFile}"
+                                        localBehaviours:DropFilesBehavior.FilesDropCommand="{Binding GetFileToShareCommand}"
+                                        localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel
@@ -124,7 +125,8 @@
                                 <TabItem.Content>
                                     <ListBox
                                         Background="{StaticResource ServerColor}"
-                                        ItemsSource="{Binding Uploads}">
+                                        ItemsSource="{Binding Uploads}"
+                                        localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel
@@ -179,7 +181,8 @@
                                 <TabItem.Content>
                                     <ListBox
                                         Background="{StaticResource ServerColor}"
-                                        ItemsSource="{Binding Clients}">
+                                        ItemsSource="{Binding Clients}"
+                                        localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel 
@@ -277,7 +280,8 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding AvailableFiles}"
-                                        SelectedItem="{Binding SelectedAvailableFile}">
+                                        SelectedItem="{Binding SelectedAvailableFile}"
+                                        localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel 
@@ -326,7 +330,8 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding Downloads}"
-                                        SelectedItem="{Binding SelectedDownload}">
+                                        SelectedItem="{Binding SelectedDownload}"
+                                        localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel 
@@ -409,7 +414,8 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding Servers}"
-                                        SelectedItem="{Binding SelectedServer}">
+                                        SelectedItem="{Binding SelectedServer}"
+                                        localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel 
