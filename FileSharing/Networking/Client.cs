@@ -98,7 +98,7 @@ namespace FileSharing.Networking
         public void DisconnectFromServer(EncryptedPeer server)
         {
             server.Disconnect();
-            _servers.Remove(server.Peer.Id);
+            _servers.Remove(server.Id);
         }
 
         public void DisconnectAll()
@@ -137,7 +137,7 @@ namespace FileSharing.Networking
 
                     var server = new EncryptedPeer(peer);
                     _servers.Add(server);
-                    _servers[server.Peer.Id].SendPublicKeys();
+                    _servers[server.Id].SendPublicKeys();
                 }
                 else
                 {

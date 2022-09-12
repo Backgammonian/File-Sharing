@@ -95,7 +95,7 @@ namespace FileSharing.Models
 
         public void CancelAllDownloadsFromServer(int serverID)
         {
-            var downloadsFromServer = _downloads.Values.Where(download => download.Server.Peer.Id == serverID);
+            var downloadsFromServer = _downloads.Values.Where(download => download.Server.Id == serverID);
             foreach (var download in downloadsFromServer)
             {
                 download.Cancel();
