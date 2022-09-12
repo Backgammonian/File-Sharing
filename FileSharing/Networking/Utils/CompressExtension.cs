@@ -2,7 +2,7 @@
 using System.IO;
 using System.IO.Compression;
 
-namespace FileSharing.Utils
+namespace FileSharing.Networking.Utils
 {
     public static class CompressExtension
     {

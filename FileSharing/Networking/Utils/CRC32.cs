@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using Force.Crc32;
 
-namespace FileSharing.Utils
+namespace FileSharing.Networking.Utils
 {
     public static class CRC32
     {

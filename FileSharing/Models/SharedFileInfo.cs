@@ -4,6 +4,12 @@ namespace FileSharing.Models
 {
     public class SharedFileInfo
     {
+        public SharedFileInfo()
+        {
+            Name = string.Empty;
+            Hash = string.Empty;
+        }
+
         public SharedFileInfo(SharedFile sharedFile) //used in server
         {
             Name = sharedFile.Name;

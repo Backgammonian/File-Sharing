@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.IO;
 using System.Diagnostics;
-using FileSharing.Utils;
 
 namespace FileSharing.Models
 {

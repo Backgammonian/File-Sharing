@@ -3,24 +3,23 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
-using System.Linq;
 using System.Threading.Tasks;
-using System.Threading;
 using System.IO;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using Microsoft.Toolkit.Mvvm.Input;
 using Microsoft.Win32;
+using LiteNetLib.Utils;
 using SystemTrayApp.WPF;
 using Newtonsoft.Json;
 using FileSharing.Models;
 using FileSharing.Networking;
-using FileSharing.Utils;
+using FileSharing.Networking.Utils;
 using InputBox;
 using Behaviours;
+using Extensions;
 
 namespace FileSharing.ViewModels
 {
@@ -102,7 +101,7 @@ namespace FileSharing.ViewModels
             var server = _client.GetServerByID(e.PeerID);
             if (server != null)
             {
-                Debug.WriteLine("(OnServerAdded) Adding files list of server " + server.Peer.EndPoint);
+                Debug.WriteLine("(OnServerAdded) Adding files list of server " + server.EndPoint);
 
                 _availableFiles.AddServer(server);
                 OnPropertyChanged(nameof(Servers));
@@ -114,9 +113,9 @@ namespace FileSharing.ViewModels
             var server = _client.GetServerByID(e.PeerID);
             if (server != null)
             {
-                Debug.WriteLine("(OnServerConnected) Requesting files list from server " + server.Peer.EndPoint);
+                Debug.WriteLine("(OnServerConnected) Requesting files list from server " + server.EndPoint);
 
-                SendFilesListRequest(server);
+                server.SendFilesListRequest();
             }
         }
 
@@ -137,9 +136,12 @@ namespace FileSharing.ViewModels
             OnPropertyChanged(nameof(Downloads));
         }
 
-        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs args)
+        private async Task OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs args)
         {
-            RequestMissingFileSegments(args);
+            var server = args.Server;
+            await server.RequestMissingFileSegments(args.DownloadID,
+                args.FileHash,
+                args.NumbersOfMissingSegments);
         }
 
         private void OnClientAdded(object? sender, EncryptedPeerEventArgs e)
@@ -200,28 +202,19 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!TryParseType(typeByte, out NetMessageType type))
+            if (!typeByte.TryParseType(out NetMessageType type))
             {
                 return;
             }
 
+            Debug.WriteLine($"(Client_ProcessIncomingMessage) Source: {server.EndPoint}");
+            Debug.WriteLine($"(Client_ProcessIncomingMessage) Type: {type}");
+
             switch (type)
             {
                 case NetMessageType.FilesList:
-                {
-                    Debug.WriteLine("(Client_ProcessIncomingMessage) Files List");
-
-                    if (reader.TryGetUInt(out uint receivedCrc) &&
-                        reader.TryGetString(out string jsonFilesList))
-                    {
-                        ReceiveFilesList(server, receivedCrc, jsonFilesList);
-                    }
-                    else
-                    {
-                        Debug.WriteLine("(Client_ProcessIncomingMessage) Failed to get Files List");
-                    }
-                }
-                break;
+                    ReceiveFilesList(server, reader);
+                    break;
 
                 case NetMessageType.FileSegment:
                 case NetMessageType.ResendFileSegment:
@@ -249,7 +242,7 @@ namespace FileSharing.ViewModels
 
                     if (reader.TryGetString(out string downloadID))
                     {
-                        ReceiveDownloadCancellation(server, downloadID);
+                        ReceiveDownloadCancellation(downloadID);
                     }
                     else
                     {
@@ -274,7 +267,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!TryParseType(typeByte, out NetMessageType type))
+            if (!typeByte.TryParseType(out NetMessageType type))
             {
                 return;
             }
@@ -377,22 +370,6 @@ namespace FileSharing.ViewModels
                     break;
             }
         }
-
-        private bool TryParseType(byte typeByte, out NetMessageType type)
-        {
-            if (Enum.TryParse(typeByte + "", out NetMessageType messageType))
-            {
-                type = messageType;
-
-                return true;
-            }
-            else
-            {
-                type = NetMessageType.None;
-
-                return false;
-            }
-        }
         #endregion
 
         #region Commands implementations
@@ -430,7 +407,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!_client.IsConnectedToServer(file.Server.Peer.Id, out EncryptedPeer? server) ||
+            if (!_client.IsConnectedToServer(file.Server.Id, out EncryptedPeer? server) ||
                 server == null)
             {
                 MessageBox.Show("File '" + file.Name + "' is unreachable: no connection to file server",
@@ -475,7 +452,7 @@ namespace FileSharing.ViewModels
                 {
                     SendFileDenial(server, downloadID);
                     PrepareForFileReceiving(newDownload);
-                    SendFileRequest(server, newDownload);
+                    server.SendFileRequest(newDownload);
                 }
             }
             else
@@ -489,13 +466,13 @@ namespace FileSharing.ViewModels
                 if (confirmDownloadRepeat == MessageBoxResult.Yes)
                 {
                     PrepareForFileReceiving(newDownload);
-                    SendFileRequest(server, newDownload);
+                    server.SendFileRequest(newDownload);
                 }
             }
             else
             {
                 PrepareForFileReceiving(newDownload);
-                SendFileRequest(server, newDownload);
+                server.SendFileRequest(newDownload);
             }
         }
 
@@ -533,7 +510,7 @@ namespace FileSharing.ViewModels
 
             if (confirmDownloadCancellation == MessageBoxResult.Yes)
             {
-                if (_client.IsConnectedToServer(download.Server.Peer.Id, out EncryptedPeer? server) &&
+                if (_client.IsConnectedToServer(download.Server.Id, out EncryptedPeer? server) &&
                     server != null)
                 {
                     SendFileDenial(server, download.ID);
@@ -569,7 +546,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            var confirmDisconnect = MessageBox.Show("Do you want to disconnect from server " + server.Peer.EndPoint + "?",
+            var confirmDisconnect = MessageBox.Show("Do you want to disconnect from server " + server.EndPoint + "?",
                 "Disconnect Confirmation",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -577,7 +554,7 @@ namespace FileSharing.ViewModels
             if (confirmDisconnect == MessageBoxResult.Yes)
             {
                 _client.DisconnectFromServer(server);
-                _availableFiles.RemoveServer(server.Peer.Id);
+                _availableFiles.RemoveServer(server.Id);
             }
         }
 
@@ -601,7 +578,7 @@ namespace FileSharing.ViewModels
                     foreach (var upload in _uploads.GetAllUploadsOfFile(sharedFile.Hash))
                     {
                         upload.Cancel();
-                        SendUploadDenial(upload.Destination, upload.ID);
+                        upload.Destination.SendUploadDenial(upload.ID);
                     }
                 }
             }
@@ -655,7 +632,7 @@ namespace FileSharing.ViewModels
             var filesListJson = JsonConvert.SerializeObject(filesList);
             var crc = CRC32.Compute(filesListJson);
 
-            var message = new SimpleWriter();
+            var message = new NetDataWriter();
             message.Put((byte)NetMessageType.FilesList);
             message.Put(crc);
             message.Put(filesListJson);
@@ -669,7 +646,7 @@ namespace FileSharing.ViewModels
             var filesListJson = JsonConvert.SerializeObject(filesList);
             var crc = CRC32.Compute(filesListJson);
 
-            var message = new SimpleWriter();
+            var message = new NetDataWriter();
             message.Put((byte)NetMessageType.FilesList);
             message.Put(crc);
             message.Put(filesListJson);
@@ -727,7 +704,7 @@ namespace FileSharing.ViewModels
 
                 if (file.TryReadSegment(numberOfSegment, out byte[] segment))
                 {
-                    var message = new SimpleWriter();
+                    var message = new NetDataWriter();
                     message.Put((byte)NetMessageType.FileSegment);
                     message.Put(uploadID);
                     message.Put(numberOfSegment);
@@ -756,7 +733,7 @@ namespace FileSharing.ViewModels
 
                 if (file.TryReadSegment(numberOfSegment, out byte[] segment))
                 {
-                    var message = new SimpleWriter();
+                    var message = new NetDataWriter();
                     message.Put((byte)NetMessageType.ResendFileSegment);
                     message.Put(uploadID);
                     message.Put(numberOfSegment);
@@ -776,48 +753,6 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void SendUploadDenial(EncryptedPeer destination, string uploadID)
-        {
-            var message = new SimpleWriter();
-            message.Put((byte)NetMessageType.CancelDownload);
-            message.Put(uploadID);
-
-            destination.SendEncrypted(message, 0);
-        }
-
-        private void SendFilesListRequest(EncryptedPeer server)
-        {
-            var message = new SimpleWriter();
-            message.Put((byte)NetMessageType.FilesListRequest);
-
-            server.SendEncrypted(message, 0);
-        }
-
-        private void SendFileSegmentAck(EncryptedPeer server, string downloadID, long numOfSegment, byte channel)
-        {
-            var message = new SimpleWriter();
-            message.Put((byte)NetMessageType.FileSegmentAck);
-            message.Put(downloadID);
-            message.Put(numOfSegment);
-            message.Put(channel);
-
-            server.SendEncrypted(message, channel);
-        }
-
-        private void RequestFileSegment(EncryptedPeer server, string downloadID, string fileHash, long numOfSegment, byte channel)
-        {
-            Debug.WriteLine("(RequestFileSegment) " + fileHash + ", segment no. " + numOfSegment);
-
-            var message = new SimpleWriter();
-            message.Put((byte)NetMessageType.ResendFileSegment);
-            message.Put(downloadID);
-            message.Put(fileHash);
-            message.Put(numOfSegment);
-            message.Put(channel);
-
-            server.SendEncrypted(message, channel);
-        }
-
         private void SendFileDenial(EncryptedPeer server, string downloadID)
         {
             if (!_downloads.HasDownload(downloadID))
@@ -827,19 +762,9 @@ namespace FileSharing.ViewModels
 
             _downloads[downloadID].Cancel();
 
-            var message = new SimpleWriter();
+            var message = new NetDataWriter();
             message.Put((byte)NetMessageType.CancelDownload);
             message.Put(downloadID);
-
-            server.SendEncrypted(message, 0);
-        }
-
-        private void SendFileRequest(EncryptedPeer server, Download download)
-        {
-            var message = new SimpleWriter();
-            message.Put((byte)NetMessageType.FileRequest);
-            message.Put(download.Hash);
-            message.Put(download.ID);
 
             server.SendEncrypted(message, 0);
         }
@@ -847,27 +772,36 @@ namespace FileSharing.ViewModels
         private void PrepareForFileReceiving(Download download)
         {
             _downloads.AddDownload(download);
+
+            Notify("New download",
+                $"File {download.Name} is now downloading!",
+                1500,
+                System.Windows.Forms.ToolTipIcon.Info);
         }
 
-        private void ReceiveFilesList(EncryptedPeer server, uint receivedCrc, string jsonFilesList)
+        private void ReceiveFilesList(EncryptedPeer server, NetDataReader reader)
         {
+            if (!reader.TryGetUInt(out uint receivedCrc) ||
+                !reader.TryGetString(out string jsonFilesList))
+            {
+                return;
+            }
+
             var calculatedCrc = CRC32.Compute(jsonFilesList);
             if (receivedCrc != calculatedCrc)
             {
                 Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received files list does not match: {0} != {1}", receivedCrc, calculatedCrc);
 
-                SendFilesListRequest(server);
+                server.SendFilesListRequest();
 
                 return;
             }
 
-            Debug.WriteLine(jsonFilesList);
-
             var filesList = JsonConvert.DeserializeObject<List<SharedFileInfo>>(jsonFilesList);
             if (filesList != null &&
-                _availableFiles.HasServer(server.Peer.Id))
+                _availableFiles.HasServer(server.Id))
             {
-                _availableFiles[server.Peer.Id].UpdateWith(filesList);
+                _availableFiles[server.Id].UpdateWith(filesList);
             }
         }
 
@@ -885,19 +819,19 @@ namespace FileSharing.ViewModels
                         receivedCrc,
                         calculatedCrc);
 
-                    RequestFileSegment(server, downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
+                    server.RequestFileSegment(downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
                 }
                 else
                 {
                     if (await _downloads[downloadID].TryWrite(numOfSegment, segment, channel))
                     {
-                        SendFileSegmentAck(server, downloadID, numOfSegment, channel);
+                        server.SendFileSegmentAck(downloadID, numOfSegment, channel);
                     }
                 }
             }
         }
 
-        private void ReceiveDownloadCancellation(EncryptedPeer server, string downloadID)
+        private void ReceiveDownloadCancellation(string downloadID)
         {
             if (_downloads.HasDownload(downloadID))
             {
@@ -929,25 +863,6 @@ namespace FileSharing.ViewModels
                 _uploads[uploadID].Cancel();
             }
         }
-
-        private void RequestMissingFileSegments(MissingSegmentsEventArgs args)
-        {
-            var task = new Task(() => RequestMissingFileSegmentsTask(args));
-            task.Start();
-        }
-
-        private void RequestMissingFileSegmentsTask(MissingSegmentsEventArgs args)
-        {
-            for (int i = 0; i < args.NumbersOfMissingSegments.Count; i++)
-            {
-                RequestFileSegment(args.Server, args.DownloadID, args.FileHash, args.NumbersOfMissingSegments[i], Convert.ToByte(i % Constants.ChannelsCount));
-
-                if (i % 4 == 0)
-                {
-                    Thread.Sleep(20);
-                }
-            }
-        }
         #endregion
 
         #region Methods for enabling and disabling application
@@ -963,7 +878,7 @@ namespace FileSharing.ViewModels
             {
                 if (portNumberDialog.AskPort(defaultPort, out int portNumber))
                 {
-                    if (!IsPortOccupied(portNumber))
+                    if (!portNumber.IsPortOccupied())
                     {
                         isFreePortChosen = true;
                         port = portNumber;
@@ -980,7 +895,7 @@ namespace FileSharing.ViewModels
                 {
                     //take default port number if it's not occupied
                     //otherwise don't start application at all
-                    if (!IsPortOccupied(defaultPort))
+                    if (!defaultPort.IsPortOccupied())
                     {
                         isFreePortChosen = true;
                         port = defaultPort;
@@ -999,11 +914,6 @@ namespace FileSharing.ViewModels
             while (!isFreePortChosen);
 
             _server.StartListening(port);
-        }
-
-        private bool IsPortOccupied(int port)
-        {
-            return IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Any(p => p.Port == port);
         }
 
         private void ShutdownApp()

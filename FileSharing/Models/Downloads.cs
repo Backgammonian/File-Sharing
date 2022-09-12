@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections;
@@ -15,8 +16,9 @@ namespace FileSharing.Models
             _downloads = new ConcurrentDictionary<string, Download>();
         }
 
+        public delegate Task AsyncEventHandler<TEventArgs>(object? sender, TEventArgs e);
         public event EventHandler<EventArgs>? DownloadsListUpdated;
-        public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
+        public event AsyncEventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
 
         public IEnumerable<Download> DownloadsList => _downloads.Values;
 
@@ -70,7 +72,7 @@ namespace FileSharing.Models
         {
             try
             {
-                var download = _downloads.Values.First(target => target.Path == downloadFilePath && target.IsActive);
+                var download = _downloads.Values.First(target => target.FilePath == downloadFilePath && target.IsActive);
                 downloadID = download.ID;
 
                 return true;

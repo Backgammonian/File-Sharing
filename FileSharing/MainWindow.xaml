@@ -92,7 +92,7 @@
                                                         Style="{StaticResource HashTextBlock}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PopUpTextBlock}" 
-                                                        Text="{Binding Path, StringFormat={}Path: {0}}"/>
+                                                        Text="{Binding FilePath, StringFormat={}Path: {0}}"/>
                                                     <Button 
                                                         Style="{StaticResource PopUpButtonStyle}"
                                                         Command="{Binding DataContext.RemoveSharedFileCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"

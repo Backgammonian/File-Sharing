@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Net;
 using System.Windows;
 using System.Windows.Threading;
 using System.Collections.Generic;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using LiteNetLib;
 using LiteNetLib.Utils;
-using FileSharing.Utils;
+using FileSharing.Networking.Utils;
 
 namespace FileSharing.Networking
 {
@@ -15,6 +16,7 @@ namespace FileSharing.Networking
         private const double _interval = 100.0;
         private const int _timeout = 30;
 
+        private readonly NetPeer _peer;
         private readonly CryptographyModule _cryptography;
         private readonly DispatcherTimer _durationTimer;
         private readonly DispatcherTimer _disconnectTimer;
@@ -37,8 +39,7 @@ namespace FileSharing.Networking
 
         public EncryptedPeer(NetPeer peer)
         {
-            Peer = peer;
-            StartTime = DateTime.Now;
+            _peer = peer;
             _cryptography = new CryptographyModule();
             _durationTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _durationTimer.Interval = new TimeSpan(0, 0, 1);
@@ -61,11 +62,14 @@ namespace FileSharing.Networking
             _uploadSpeedCounter.Interval = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(_interval));
             _uploadSpeedCounter.Tick += OnUploadSpeedCounterTick;
             _uploadSpeedCounter.Start();
+
+            StartTime = DateTime.Now;
         }
 
         public event EventHandler<EncryptedPeerEventArgs>? PeerDisconnected;
 
-        public NetPeer Peer { get; }
+        public int Id => _peer.Id;
+        public IPEndPoint EndPoint => _peer.EndPoint;
         public bool IsSecurityEnabled => _cryptography.IsEnabled;
 
         public DateTime StartTime
@@ -166,7 +170,7 @@ namespace FileSharing.Networking
             keys.Put(signaturePublicKey.Length);
             keys.Put(signaturePublicKey);
 
-            Peer.Send(keys, 0, DeliveryMethod.ReliableOrdered);
+            _peer.Send(keys, 0, DeliveryMethod.ReliableOrdered);
         }
 
         public void ApplyKeys(byte[] publicKey, byte[] signaturePublicKey)
@@ -185,7 +189,7 @@ namespace FileSharing.Networking
         {
             if (!IsSecurityEnabled)
             {
-                Debug.WriteLine($"(SendEncrypted) Encryption with peer {Peer.EndPoint} is not established!");
+                Debug.WriteLine($"(SendEncrypted) Encryption with peer {EndPoint} is not established!");
 
                 return;
             }
@@ -194,35 +198,35 @@ namespace FileSharing.Networking
                 _cryptography.TryEncrypt(compressedMessage, out byte[] encryptedMessage, out byte[] iv) &&
                 _cryptography.TryCreateSignature(encryptedMessage, out byte[] signature))
             {
-                var sentMessage = new SimpleWriter();
-                sentMessage.Put(encryptedMessage.Length);
-                sentMessage.Put(encryptedMessage);
-                sentMessage.Put(signature.Length);
-                sentMessage.Put(signature);
-                sentMessage.Put(iv.Length);
-                sentMessage.Put(iv);
+                var sendingMessage = new NetDataWriter();
+                sendingMessage.Put(encryptedMessage.Length);
+                sendingMessage.Put(encryptedMessage);
+                sendingMessage.Put(signature.Length);
+                sendingMessage.Put(signature);
+                sendingMessage.Put(iv.Length);
+                sendingMessage.Put(iv);
 
-                Debug.WriteLine($"(SendEncrypted) Length of sent data: {sentMessage.Length}");
+                Debug.WriteLine($"(SendEncrypted) Length of sent data: {sendingMessage.Length}");
 
-                BytesUploaded += sentMessage.Length;
-                Peer.Send(sentMessage.Get(), channelNumber, DeliveryMethod.ReliableOrdered);
+                BytesUploaded += sendingMessage.Length;
+                _peer.Send(sendingMessage, channelNumber, DeliveryMethod.ReliableOrdered);
             }
             else
             {
-                Debug.WriteLine($"(SendEncrypted_Error) Can't send an encrypted message to {Peer.EndPoint}");
+                Debug.WriteLine($"(SendEncrypted_Error) Can't send an encrypted message to {EndPoint}");
             }
         }
 
-        public void SendEncrypted(SimpleWriter message, byte channelNumber)
+        public void SendEncrypted(NetDataWriter message, byte channelNumber)
         {
-            SendEncrypted(message.Get(), channelNumber);
+            SendEncrypted(message.Data, channelNumber);
         }
 
         public NetDataReader DecryptReceivedData(NetPacketReader message)
         {
             if (!IsSecurityEnabled)
             {
-                Debug.WriteLine($"(DecryptReceivedData) Encryption with {Peer.EndPoint} is not established!");
+                Debug.WriteLine($"(DecryptReceivedData) Encryption with {EndPoint} is not established!");
 
                 return new NetDataReader(Array.Empty<byte>());
             }
@@ -244,7 +248,7 @@ namespace FileSharing.Networking
             }
             else
             {
-                Debug.WriteLine($"(DecryptReceivedData_Error) Can't decrypt received message from {Peer.EndPoint}");
+                Debug.WriteLine($"(DecryptReceivedData_Error) Can't decrypt received message from {EndPoint}");
 
                 return new NetDataReader(Array.Empty<byte>());
             }
@@ -252,8 +256,8 @@ namespace FileSharing.Networking
 
         public void Disconnect()
         {
-            var id = Peer.Id;
-            Peer.Disconnect();
+            var id = Id;
+            _peer.Disconnect();
 
             _durationTimer.Stop();
             _disconnectTimer.Stop();
@@ -261,6 +265,11 @@ namespace FileSharing.Networking
             _uploadSpeedCounter.Stop();
 
             PeerDisconnected?.Invoke(this, new EncryptedPeerEventArgs(id));
+        }
+
+        public override string ToString()
+        {
+            return _peer.EndPoint.ToString();
         }
     }
 }

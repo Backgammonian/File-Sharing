@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Security.Cryptography;
 
-namespace FileSharing.Utils
+namespace FileSharing.Networking.Utils
 {
     public class RandomGenerator : IDisposable
     {
