@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Windows.Data;
 using System.Net;
-using FileSharing.Models;
+using FileSharing.Networking;
 
 namespace FileSharing.Converters
 {

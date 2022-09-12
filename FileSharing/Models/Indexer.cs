@@ -1,4 +1,4 @@
-﻿namespace FileSharing.Utils
+﻿namespace FileSharing.Models
 {
     public class Indexer
     {

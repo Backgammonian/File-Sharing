@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Layers;
-using FileSharing.Utils;
+using LiteNetLib.Utils;
 
 namespace FileSharing.Networking
 {
@@ -81,7 +81,7 @@ namespace FileSharing.Networking
             _server.DisconnectAll();
         }
 
-        public void SendToAll(SimpleWriter message)
+        public void SendToAll(NetDataWriter message)
         {
             foreach (var client in _clients.EstablishedList)
             {
