@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Windows;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
@@ -24,10 +25,7 @@ namespace FileSharing.Models
         private decimal _progress;
         private bool _isDownloaded;
         private bool _isCancelled;
-        private bool _isHashVerificationStarted;
-        private bool _isHashVerificationFailed;
-        private bool _isHashVerificationResultPositive;
-        private bool _isHashVerificationResultNegative;
+        private HashVerificationStatus _hashVerificationStatus;
         private double _averageSpeed;
         private long _oldAmountOfDownloadedBytes, _newAmountOfDownloadedBytes;
         private DateTime _oldDownloadTimeStamp, _newDownloadTimeStamp;
@@ -48,6 +46,7 @@ namespace FileSharing.Models
             IsCancelled = false;
             BytesDownloaded = 0;
             DownloadSpeed = 0;
+            HashVerificationStatus = HashVerificationStatus.None;
 
             _fileSegmentsCheck = new bool[NumberOfSegments];
             for (long i = 0; i < _fileSegmentsCheck.LongLength; i++)
@@ -94,40 +93,10 @@ namespace FileSharing.Models
             private set => SetProperty(ref _isCancelled, value);
         }
 
-        public bool IsHashVerificationStarted
+        public HashVerificationStatus HashVerificationStatus
         {
-            get => _isHashVerificationStarted;
-            private set => SetProperty(ref _isHashVerificationStarted, value);
-        }
-
-        public bool IsHashVerificationFailed
-        {
-            get => _isHashVerificationFailed;
-            private set => SetProperty(ref _isHashVerificationFailed, value);
-        }
-
-        public bool IsHashVerificationResultPositive
-        {
-            get => _isHashVerificationResultPositive;
-            private set
-            {
-                SetProperty(ref _isHashVerificationResultPositive, value);
-
-                _isHashVerificationResultNegative = !value;
-                OnPropertyChanged(nameof(IsHashVerificationResultNegative));
-            }
-        }
-
-        public bool IsHashVerificationResultNegative
-        {
-            get => _isHashVerificationResultNegative;
-            private set
-            {
-                SetProperty(ref _isHashVerificationResultNegative, value);
-
-                _isHashVerificationResultPositive = !value;
-                OnPropertyChanged(nameof(IsHashVerificationResultPositive));
-            }
+            get => _hashVerificationStatus;
+            private set => SetProperty(ref _hashVerificationStatus, value);
         }
 
         public long BytesDownloaded
@@ -136,7 +105,6 @@ namespace FileSharing.Models
             private set
             {
                 SetProperty(ref _bytesDownloaded, value);
-
                 Progress = BytesDownloaded / Convert.ToDecimal(Size);
             }
         }
@@ -200,18 +168,7 @@ namespace FileSharing.Models
             var seconds = _stopwatch.Elapsed.Seconds > 0 ? _stopwatch.Elapsed.Seconds : 0.01;
             AverageSpeed = BytesDownloaded / Convert.ToDouble(seconds);
 
-            DownloadSpeed = CalculateMovingAverageDownloadSpeed();
-        }
-
-        private double CalculateMovingAverageDownloadSpeed()
-        {
-            var result = 0.0;
-            foreach (var value in _downloadSpeedValues)
-            {
-                result += value;
-            }
-
-            return result / _downloadSpeedValues.Count;
+            DownloadSpeed = _downloadSpeedValues.CalculateAverageValue();
         }
 
         public bool TryOpenFile()
@@ -247,7 +204,7 @@ namespace FileSharing.Models
             }
         }
 
-        public bool TryWrite(long numOfSegment, byte[] segment, byte channel)
+        public async Task<bool> TryWrite(long numOfSegment, byte[] segment, byte channel)
         {
             if (channel >= 0 &&
                 channel < Constants.ChannelsCount)
@@ -257,7 +214,7 @@ namespace FileSharing.Models
 
             if (!IsActive)
             {
-                Debug.WriteLine("(DownloadFile_AddReceivedBytes) File " + Name + " is already downloaded/cancelled!");
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} is already downloaded/cancelled!");
 
                 return false;
             }
@@ -265,21 +222,21 @@ namespace FileSharing.Models
             if (numOfSegment < 0 ||
                 numOfSegment >= NumberOfSegments)
             {
-                Debug.WriteLine("(DownloadFile_AddReceivedBytes) File " + Name + ": wrong number of incoming file segment!");
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} wrong number of incoming file segment!");
 
                 return false;
             }
 
             if (_fileSegmentsCheck[numOfSegment])
             {
-                Debug.WriteLine("(DownloadFile_AddReceivedBytes) File " + Name + " already have segment " + numOfSegment + "!");
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} already have segment {numOfSegment}!");
 
                 return false;
             }
 
             try
             {
-                AddReceivedBytes(numOfSegment, segment);
+                await AddReceivedBytes(numOfSegment, segment);
 
                 return true;
             }
@@ -289,14 +246,14 @@ namespace FileSharing.Models
             }
         }
 
-        private void AddReceivedBytes(long numOfSegment, byte[] segment)
+        private async Task AddReceivedBytes(long numOfSegment, byte[] segment)
         {
             _missingSegmentsTimer.Stop();
             _missingSegmentsTimer.Start();
 
             if (_stream == null)
             {
-                Debug.WriteLine("stream is null!");
+                Debug.WriteLine($"(AddReceivedBytes) File stream {Name} is null!");
 
                 return;
             }
@@ -309,30 +266,38 @@ namespace FileSharing.Models
             BytesDownloaded += segment.Length;
             if (BytesDownloaded == Size)
             {
-                Debug.WriteLine("(DownloadFile_AddReceivedBytes) File '{0}': All bytes downloaded! {1} of {2}", Name, BytesDownloaded, Size);
-
-                IsDownloaded = true;
-                ShutdownFile();
-
-                Debug.WriteLine("(DownloadFile_Statistics) Number of segments: " + NumberOfSegments);
-                Debug.WriteLine("(DownloadFile_Statistics) Used Channels:");
-                for (int i = 0; i < _incomingSegmentsChannelsStatistic.Length; i++)
-                {
-                    Debug.WriteLine("\t Channel " + i + " : " + (_incomingSegmentsChannelsStatistic[i] / Convert.ToDouble(NumberOfSegments) * 100.0) + "%");
-                }
+                await FinishDownload();
             }
+        }
+
+        private async Task FinishDownload()
+        {
+            Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File '{Name}': All bytes downloaded! {BytesDownloaded} of {Size}");
+
+            IsDownloaded = true;
+            ShutdownFile();
+
+            Debug.WriteLine($"(DownloadFile_Statistics) Number of segments: {NumberOfSegments}");
+            Debug.WriteLine("(DownloadFile_Statistics) Used Channels:");
+            for (int i = 0; i < _incomingSegmentsChannelsStatistic.Length; i++)
+            {
+                var percentage = _incomingSegmentsChannelsStatistic[i] / Convert.ToDouble(NumberOfSegments) * 100.0;
+                Debug.WriteLine($"\t Channel {i}: {percentage}%");
+            }
+
+            await VerifyHash();
         }
 
         public void Cancel()
         {
             if (!IsActive)
             {
-                Debug.WriteLine("(DownloadFile_Cancel) File " + Name + " is already downloaded/cancelled!");
+                Debug.WriteLine($"(DownloadFile_Cancel) File {Name} is already downloaded/cancelled!");
 
                 return;
             }
 
-            Debug.WriteLine("(DownloadFile_Cancel) " + Name + ": download has been cancelled!");
+            Debug.WriteLine($"(DownloadFile_Cancel) {Name}: download has been cancelled!");
 
             IsCancelled = true;
             ShutdownFile();
@@ -340,7 +305,6 @@ namespace FileSharing.Models
             try
             {
                 File.Delete(FilePath);
-
                 FileRemoved?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception)
@@ -348,54 +312,41 @@ namespace FileSharing.Models
             }
         }
 
-        public void ProhibitHashVerification()
+        public async Task VerifyHash()
         {
-            IsHashVerificationFailed = true;
-        }
-
-        public void VerifyHash()
-        {
-            if (IsHashVerificationStarted ||
-                IsHashVerificationFailed)
+            if (HashVerificationStatus != HashVerificationStatus.None ||
+                !IsDownloaded)
             {
                 return;
             }
 
-            Debug.WriteLine("(Download) Hash verification started!");
-            
-            IsHashVerificationStarted = true;
-            if (TryComputeHashOfFile(out bool result))
+            Debug.WriteLine("(VerifyHash) Hash verification started!");
+
+            HashVerificationStatus = HashVerificationStatus.Started;
+            var calculatedHash = await CryptographyModule.ComputeFileHash(FilePath);
+
+            Debug.WriteLine($"(VerifyHash) Calculated hash: {calculatedHash}");
+            Debug.WriteLine($"(VerifyHash) Original hash: {Hash}");
+
+            if (calculatedHash == string.Empty)
             {
-                if (result)
-                {
-                    IsHashVerificationResultPositive = true;
+                HashVerificationStatus = HashVerificationStatus.Failed;
 
-                    Debug.WriteLine("(Download) Hash verification result is positive!");
-                }
-                else
-                {
-                    IsHashVerificationResultNegative = true;
-
-                    Debug.WriteLine("(Download) Hash verification result is negative!");
-                }
+                Debug.WriteLine("(VerifyHash) Hash verification has failed.");
             }
-        }
-
-        private bool TryComputeHashOfFile(out bool result)
-        {
-            if (CryptographyModule.TryComputeFileHash(FilePath, out string calculatedHash))
+            else
+            if (calculatedHash == Hash)
             {
-                result = calculatedHash == Hash;
+                HashVerificationStatus = HashVerificationStatus.Positive;
 
-                Debug.WriteLine("(TryComputeHashOfFile) Calculated hash: " + calculatedHash);
-                Debug.WriteLine("(TryComputeHashOfFile) Result: " + result);
-
-                return true;
+                Debug.WriteLine("(VerifyHash) Hash verification result is positive!");
             }
+            else
+            {
+                HashVerificationStatus = HashVerificationStatus.Negative;
 
-            result = false;
-
-            return false;
+                Debug.WriteLine("(VerifyHash) Hash verification result is negative.");
+            }
         }
     }
 }

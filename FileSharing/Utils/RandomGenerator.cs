@@ -5,13 +5,29 @@ namespace FileSharing.Utils
 {
     public class RandomGenerator : IDisposable
     {
-        private readonly RNGCryptoServiceProvider _csp;
         private const string _chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+        private readonly RNGCryptoServiceProvider _csp;
         private bool _isDisposed;
 
         public RandomGenerator()
         {
             _csp = new RNGCryptoServiceProvider();
+        }
+
+        private uint GetRandomUInt()
+        {
+            var randomBytes = GenerateRandomBytes(sizeof(uint));
+
+            return BitConverter.ToUInt32(randomBytes, 0);
+        }
+
+        private byte[] GenerateRandomBytes(int bytesNumber)
+        {
+            var buffer = new byte[bytesNumber];
+            _csp.GetBytes(buffer);
+
+            return buffer;
         }
 
         public int Next(int minValue, int maxExclusiveValue)
@@ -44,6 +60,7 @@ namespace FileSharing.Utils
         public static string GetRandomString(int length)
         {
             using var rnd = new RandomGenerator();
+
             var result = "";
             for (var j = 0; j < length; j++)
             {
@@ -51,21 +68,6 @@ namespace FileSharing.Utils
             }
 
             return result;
-        }
-
-        private uint GetRandomUInt()
-        {
-            var randomBytes = GenerateRandomBytes(sizeof(uint));
-
-            return BitConverter.ToUInt32(randomBytes, 0);
-        }
-
-        private byte[] GenerateRandomBytes(int bytesNumber)
-        {
-            var buffer = new byte[bytesNumber];
-            _csp.GetBytes(buffer);
-
-            return buffer;
         }
 
         public void Dispose()

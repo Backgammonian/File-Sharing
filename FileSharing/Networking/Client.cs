@@ -35,7 +35,8 @@ namespace FileSharing.Networking
             _listenTask = new Task(() => Run(token));
         }
 
-        public event EventHandler<NetEventArgs>? MessageReceived;
+        public delegate Task AsyncEventHandler<TEventArgs>(object? sender, TEventArgs e);
+        public event AsyncEventHandler<NetEventArgs>? MessageReceived;
         public event EventHandler<EncryptedPeerEventArgs>? ServerAdded;
         public event EventHandler<EncryptedPeerEventArgs>? ServerConnected;
         public event EventHandler<EncryptedPeerEventArgs>? ServerRemoved;
