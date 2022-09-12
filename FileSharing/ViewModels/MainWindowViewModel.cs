@@ -39,41 +39,43 @@ namespace FileSharing.ViewModels
         {
             InitializeSystemTrayCommands();
 
-            _client = new Client();
-            _client.ServerAdded += OnServerAdded;
-            _client.ServerConnected += OnServerConnected;
-            _client.ServerRemoved += OnServerRemoved;
-            _client.MessageReceived += OnClientMessageReceived;
-            _availableFiles = new FilesFromServers();
-            _availableFiles.FilesUpdated += OnAvailableFilesListUpdated;
-            _downloads = new Downloads();
-            _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
-            _downloads.MissingSegmentsRequested += OnMissingFileSegmentsRequested;
-
             ConnectToServerCommand = new RelayCommand(ConnectToServer);
             DownloadFileCommand = new RelayCommand<SharedFileInfo>(DownloadFile);
             CancelDownloadCommand = new RelayCommand<Download>(CancelDownload);
             OpenFileInFolderCommand = new RelayCommand<Download>(OpenFileInFolder);
             DisconnectFromServerCommand = new RelayCommand<EncryptedPeer>(DisconnectFromServer);
-            VerifyFileHashCommand = new RelayCommand<Download>(VerifyFileHash);
+            RemoveSharedFileCommand = new RelayCommand<SharedFile>(RemoveSharedFile);
+            AddFileCommand = new AsyncRelayCommand(AddFile);
+            GetFileToShareCommand = new AsyncRelayCommand<FilesDroppedEventArgs?>(GetFileToShare);
+            ShowLocalPortCommand = new RelayCommand(ShowLocalPort);
+
+            _client = new Client();
+            _client.ServerAdded += OnServerAdded;
+            _client.ServerConnected += OnServerConnected;
+            _client.ServerRemoved += OnServerRemoved;
+            _client.MessageReceived += OnClientMessageReceived;
+
+            _availableFiles = new FilesFromServers();
+            _availableFiles.FilesUpdated += OnAvailableFilesListUpdated;
+
+            _downloads = new Downloads();
+            _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
+            _downloads.MissingSegmentsRequested += OnMissingFileSegmentsRequested;
 
             _server = new Server();
             _server.ClientAdded += OnClientAdded;
             _server.ClientRemoved += OnClientRemoved;
             _server.MessageReceived += OnServerMessageReceived;
+
             _sharedFiles = new SharedFiles();
             _sharedFiles.SharedFileAdded += OnSharedFileAdded;
             _sharedFiles.SharedFileHashCalculated += OnSharedFileHashCalculated;
             _sharedFiles.SharedFileError += OnSharedFileError;
             _sharedFiles.SharedFileRemoved += OnSharedFileRemoved;
+
             _uploads = new Uploads();
             _uploads.UploadAdded += OnUploadAdded;
             _uploads.UploadRemoved += OnUploadRemoved;
-
-            RemoveSharedFileCommand = new RelayCommand<SharedFile>(RemoveSharedFile);
-            AddFileCommand = new AsyncRelayCommand(AddFile);
-            GetFileToShareCommand = new AsyncRelayCommand<FilesDroppedEventArgs?>(GetFileToShare);
-            ShowLocalPortCommand = new RelayCommand(ShowLocalPort);
         }
 
         #region View-model bindings
@@ -85,7 +87,6 @@ namespace FileSharing.ViewModels
         public ICommand RemoveSharedFileCommand { get; }
         public ICommand AddFileCommand { get; }
         public ICommand ShowLocalPortCommand { get; }
-        public ICommand VerifyFileHashCommand { get; }
         public ICommand GetFileToShareCommand { get; }
         public ObservableCollection<SharedFileInfo> AvailableFiles => new ObservableCollection<SharedFileInfo>(_availableFiles.List);
         public ObservableCollection<Download> Downloads => new ObservableCollection<Download>(_downloads.DownloadsList);
@@ -93,10 +94,6 @@ namespace FileSharing.ViewModels
         public ObservableCollection<SharedFile> SharedFiles => new ObservableCollection<SharedFile>(_sharedFiles.SharedFilesList);
         public ObservableCollection<Upload> Uploads => new ObservableCollection<Upload>(_uploads.UploadsList);
         public ObservableCollection<EncryptedPeer> Clients => new ObservableCollection<EncryptedPeer>(_server.Clients);
-        public SharedFileInfo? SelectedAvailableFile { get; set; }
-        public Download? SelectedDownload { get; set; }
-        public EncryptedPeer? SelectedServer { get; set; }
-        public SharedFile? SelectedSharedFile { get; set; }
         #endregion
 
         #region Client & Server event handlers
@@ -140,9 +137,9 @@ namespace FileSharing.ViewModels
             OnPropertyChanged(nameof(Downloads));
         }
 
-        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
+        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs args)
         {
-            RequestMissingFileSegments(e);
+            RequestMissingFileSegments(args);
         }
 
         private void OnClientAdded(object? sender, EncryptedPeerEventArgs e)
@@ -193,19 +190,17 @@ namespace FileSharing.ViewModels
             OnPropertyChanged(nameof(Uploads));
         }
 
-        private void OnClientMessageReceived(object? sender, NetEventArgs e)
+        private async Task OnClientMessageReceived(object? sender, NetEventArgs e)
         {
             var reader = e.Message;
             var server = e.CryptoPeer;
 
-            byte typeByte = 0;
-            if (!reader.TryGetByte(out typeByte))
+            if (!reader.TryGetByte(out byte typeByte))
             {
                 return;
             }
 
-            var type = NetMessageType.None;
-            if (!TryParseType(typeByte, out type))
+            if (!TryParseType(typeByte, out NetMessageType type))
             {
                 return;
             }
@@ -239,7 +234,7 @@ namespace FileSharing.ViewModels
                         reader.TryGetBytesWithLength(out byte[] segment) &&
                         reader.TryGetByte(out byte channel))
                     {
-                        ReceiveFileSegment(server, downloadID, numOfSegment, receivedCrc, segment, channel);
+                        await ReceiveFileSegment(server, downloadID, numOfSegment, receivedCrc, segment, channel);
                     }
                     else
                     {
@@ -274,14 +269,12 @@ namespace FileSharing.ViewModels
             var reader = e.Message;
             var client = e.CryptoPeer;
 
-            byte typeByte;
-            if (!reader.TryGetByte(out typeByte))
+            if (!reader.TryGetByte(out byte typeByte))
             {
                 return;
             }
 
-            var type = NetMessageType.None;
-            if (!TryParseType(typeByte, out type))
+            if (!TryParseType(typeByte, out NetMessageType type))
             {
                 return;
             }
@@ -653,50 +646,6 @@ namespace FileSharing.ViewModels
                 MessageBoxButton.OK, 
                 MessageBoxImage.Information);
         }
-
-        private void VerifyFileHash(Download? download)
-        {
-            if (download == null)
-            {
-                return;
-            }
-
-            if (!download.IsDownloaded)
-            {
-                MessageBox.Show("Unable to verify hash of file '" + download.Name + "' because it is not downloaded yet!",
-                    "Hash verification error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-
-                return;
-            }
-
-            if (!File.Exists(download.FilePath))
-            {
-                MessageBox.Show("Unable to verify hash of file '" + download.Name + "' because it was removed or deleted!",
-                    "File not found error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-
-                download.ProhibitHashVerification();
-
-                return;
-            }
-
-            if (download.IsHashVerificationStarted ||
-                download.IsHashVerificationFailed)
-            {
-                return;
-            }
-
-            if (download.IsHashVerificationResultNegative ||
-                download.IsHashVerificationResultPositive)
-            {
-                return;
-            }
-
-            download.VerifyHash();
-        }
         #endregion
 
         #region Methods for information exchange between clients and servers
@@ -922,7 +871,7 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void ReceiveFileSegment(EncryptedPeer server, string downloadID, long numOfSegment, uint receivedCrc, byte[] segment, byte channel)
+        private async Task ReceiveFileSegment(EncryptedPeer server, string downloadID, long numOfSegment, uint receivedCrc, byte[] segment, byte channel)
         {
             if (_downloads.HasDownload(downloadID) &&
                 _downloads[downloadID].IsActive)
@@ -940,7 +889,7 @@ namespace FileSharing.ViewModels
                 }
                 else
                 {
-                    if (_downloads[downloadID].TryWrite(numOfSegment, segment, channel))
+                    if (await _downloads[downloadID].TryWrite(numOfSegment, segment, channel))
                     {
                         SendFileSegmentAck(server, downloadID, numOfSegment, channel);
                     }

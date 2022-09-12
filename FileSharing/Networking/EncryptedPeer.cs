@@ -120,7 +120,7 @@ namespace FileSharing.Networking
                 _uploadSpeedValues.Dequeue();
             }
 
-            UploadSpeed = CalculateMovingAverageUploadSpeed();
+            UploadSpeed = _uploadSpeedValues.CalculateAverageValue();
         }
 
         private void OnDownloadSpeedCounterTick(object? sender, EventArgs e)
@@ -139,7 +139,7 @@ namespace FileSharing.Networking
                 _downloadSpeedValues.Dequeue();
             }
 
-            DownloadSpeed = CalculateMovingAverageDownloadSpeed();
+            DownloadSpeed = _downloadSpeedValues.CalculateAverageValue();
         }
 
         private void OnDisconnectTimerTick(object? sender, EventArgs e)
@@ -154,28 +154,6 @@ namespace FileSharing.Networking
         private void OnDurationTimerTick(object? sender, EventArgs e)
         {
             ConnectionDuration = DateTime.Now - StartTime;
-        }
-
-        private double CalculateMovingAverageDownloadSpeed()
-        {
-            var result = 0.0;
-            foreach (var value in _downloadSpeedValues)
-            {
-                result += value;
-            }
-
-            return result / _downloadSpeedValues.Count;
-        }
-
-        private double CalculateMovingAverageUploadSpeed()
-        {
-            var result = 0.0;
-            foreach (var value in _uploadSpeedValues)
-            {
-                result += value;
-            }
-
-            return result / _uploadSpeedValues.Count;
         }
 
         public void SendPublicKeys()

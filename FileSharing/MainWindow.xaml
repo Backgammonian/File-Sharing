@@ -76,7 +76,6 @@
                                     <ListBox
                                         Background="{StaticResource ServerColor}"
                                         ItemsSource="{Binding SharedFiles}"
-                                        SelectedItem="{Binding SelectedSharedFile}"
                                         localBehaviours:DropFilesBehavior.FilesDropCommand="{Binding GetFileToShareCommand}"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
@@ -280,7 +279,6 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding AvailableFiles}"
-                                        SelectedItem="{Binding SelectedAvailableFile}"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -330,7 +328,6 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding Downloads}"
-                                        SelectedItem="{Binding SelectedDownload}"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -371,15 +368,6 @@
                                                             Text="Cancel download">
                                                         </TextBlock>
                                                     </Button>
-                                                    <Button
-                                                        Style="{StaticResource HashVerificationButton}"
-                                                        Command="{Binding DataContext.VerifyFileHashCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"
-                                                        CommandParameter="{Binding}">
-                                                        <TextBlock
-                                                            Style="{StaticResource BaseTextBlockStyle}"
-                                                            Text="Verify hash">
-                                                        </TextBlock>
-                                                    </Button>
                                                     <TextBlock 
                                                         Style="{StaticResource HashVerificationStatus}"/>
                                                     <Button 
@@ -414,7 +402,6 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding Servers}"
-                                        SelectedItem="{Binding SelectedServer}"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
