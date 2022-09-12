@@ -33,10 +33,10 @@ namespace FileSharing.Models
 
         public void AddServer(EncryptedPeer server)
         {
-            if (!HasServer(server.Peer.Id) &&
-                _filesFromServers.TryAdd(server.Peer.Id, new FilesFromServer(server)))
+            if (!HasServer(server.Id) &&
+                _filesFromServers.TryAdd(server.Id, new FilesFromServer(server)))
             {
-                _filesFromServers[server.Peer.Id].ListUpdated += OnFileListUpdated;
+                _filesFromServers[server.Id].ListUpdated += OnFileListUpdated;
                 FilesUpdated?.Invoke(this, EventArgs.Empty);
             }
         }

@@ -37,25 +37,25 @@ namespace FileSharing.Networking
 
         public bool Has(EncryptedPeer cryptoPeer)
         {
-            return _cryptoPeers.ContainsKey(cryptoPeer.Peer.Id);
+            return _cryptoPeers.ContainsKey(cryptoPeer.Id);
         }
 
         public bool IsConnectedToEndPoint(IPEndPoint endPoint)
         {
             return _cryptoPeers.Values.Any(cryptoPeer =>
-                cryptoPeer.Peer.EndPoint.Address.ToString() == endPoint.Address.ToString() &&
-                cryptoPeer.Peer.EndPoint.Port == endPoint.Port);
+                cryptoPeer.EndPoint.Address.ToString() == endPoint.Address.ToString() &&
+                cryptoPeer.EndPoint.Port == endPoint.Port);
         }
 
         public void Add(EncryptedPeer cryptoPeer)
         {
-            if (!Has(cryptoPeer.Peer.Id) &&
-                _cryptoPeers.TryAdd(cryptoPeer.Peer.Id, cryptoPeer))
+            if (!Has(cryptoPeer.Id) &&
+                _cryptoPeers.TryAdd(cryptoPeer.Id, cryptoPeer))
             {
-                _cryptoPeers[cryptoPeer.Peer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
-                PeerAdded?.Invoke(this, new EncryptedPeerEventArgs(cryptoPeer.Peer.Id));
+                _cryptoPeers[cryptoPeer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
+                PeerAdded?.Invoke(this, new EncryptedPeerEventArgs(cryptoPeer.Id));
 
-                Debug.WriteLine($"(CryptoPeers_Add) Adding peer {cryptoPeer.Peer.EndPoint} with id {cryptoPeer.Peer.Id}");
+                Debug.WriteLine($"(CryptoPeers_Add) Adding peer {cryptoPeer.EndPoint} with id {cryptoPeer.Id}");
             }
         }
 

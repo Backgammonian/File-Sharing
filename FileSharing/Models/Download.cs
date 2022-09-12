@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Windows;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
-using FileSharing.Utils;
 using FileSharing.Networking;
+using FileSharing.Networking.Utils;
 
 namespace FileSharing.Models
 {
