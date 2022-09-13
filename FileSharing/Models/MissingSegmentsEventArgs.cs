@@ -4,7 +4,7 @@ using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
-    public class MissingSegmentsEventArgs : EventArgs
+    public sealed class MissingSegmentsEventArgs : EventArgs
     {
         public MissingSegmentsEventArgs(string downloadID, string fileHash, List<long> numbersOfMissingSegments, EncryptedPeer server)
         {

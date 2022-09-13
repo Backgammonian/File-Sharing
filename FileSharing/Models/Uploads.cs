@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace FileSharing.Models
 {
-    public class Uploads
+    public sealed class Uploads
     {
         //<upload ID, upload info>
         private readonly ConcurrentDictionary<string, Upload> _uploads;

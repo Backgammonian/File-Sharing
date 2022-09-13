@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace FileSharing.Models
 {
-    public class Downloads : IEnumerable<Download>
+    public sealed class Downloads : IEnumerable<Download>
     {
         private readonly ConcurrentDictionary<string, Download> _downloads;
 

@@ -3,7 +3,7 @@ using System.Windows.Input;
 
 namespace Behaviours
 {
-    public class DropFilesBehavior
+    public sealed class DropFilesBehavior
     {
         public static readonly DependencyProperty FilesDropCommandProperty =
             DependencyProperty.RegisterAttached("FilesDropCommand", typeof(ICommand), typeof(DropFilesBehavior), new FrameworkPropertyMetadata(new PropertyChangedCallback(OnPropChanged)));

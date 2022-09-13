@@ -2,7 +2,7 @@
 
 namespace FileSharing.Models
 {
-    public class SharedFileEventArgs : EventArgs
+    public sealed class SharedFileEventArgs : EventArgs
     {
         public SharedFileEventArgs(string path)
         {

@@ -6,7 +6,7 @@ using Microsoft.Toolkit.Mvvm.ComponentModel;
 
 namespace FileSharing.Networking
 {
-    public class CryptographyModule : ObservableObject
+    public sealed class CryptographyModule : ObservableObject
     {
         private readonly ECDiffieHellmanCng _ecdh;
         private readonly byte[] _publicKey;

@@ -17,7 +17,6 @@ namespace Behaviours
         private static void OnAutoScrollToEndChanged(DependencyObject s, DependencyPropertyChangedEventArgs e)
         {
             var listBox = s as ListBox;
-
             if (listBox == null)
             {
                 return;

@@ -9,7 +9,7 @@ using LiteNetLib.Utils;
 
 namespace FileSharing.Networking
 {
-    public class Server
+    public sealed class Server
     {
         private readonly EventBasedNetListener _listener;
         private readonly XorEncryptLayer _xor;

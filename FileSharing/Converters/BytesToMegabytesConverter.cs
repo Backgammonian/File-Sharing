@@ -5,7 +5,7 @@ using Extensions;
 
 namespace FileSharing.Converters
 {
-    public class BytesToMegabytesConverter : IValueConverter
+    public sealed class BytesToMegabytesConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Threading.Tasks;
-using System.Diagnostics;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using LiteNetLib.Utils;
 using FileSharing;
 using FileSharing.Networking;
@@ -9,18 +9,9 @@ using FileSharing.Models;
 
 namespace Extensions
 {
-    public static class EncryptedPeerExtensions
+    public static class ClientExtensions
     {
-        public static void SendUploadDenial(this EncryptedPeer destination, string uploadID)
-        {
-            var message = new NetDataWriter();
-            message.Put((byte)NetMessageType.CancelDownload);
-            message.Put(uploadID);
-
-            destination.SendEncrypted(message, 0);
-        }
-
-        public static void  SendFilesListRequest(this EncryptedPeer server)
+        public static void SendFilesListRequest(this EncryptedPeer server)
         {
             var message = new NetDataWriter();
             message.Put((byte)NetMessageType.FilesListRequest);
@@ -41,7 +32,7 @@ namespace Extensions
 
         public static void RequestFileSegment(this EncryptedPeer server, string downloadID, string fileHash, long numOfSegment, byte channel)
         {
-            Debug.WriteLine("(RequestFileSegment) " + fileHash + ", segment no. " + numOfSegment);
+            Debug.WriteLine("(RequestFileSegment) " + fileHash + ", segment №" + numOfSegment);
 
             var message = new NetDataWriter();
             message.Put((byte)NetMessageType.ResendFileSegment);
@@ -51,16 +42,6 @@ namespace Extensions
             message.Put(channel);
 
             server.SendEncrypted(message.Data, channel);
-        }
-
-        public static void SendFileRequest(this EncryptedPeer server, Download download)
-        {
-            var message = new NetDataWriter();
-            message.Put((byte)NetMessageType.FileRequest);
-            message.Put(download.Hash);
-            message.Put(download.ID);
-
-            server.SendEncrypted(message, 0);
         }
 
         public static async Task RequestMissingFileSegments(this EncryptedPeer server, string downloadID, string fileHash, List<long> numbersOfMissingSegments)
@@ -74,6 +55,16 @@ namespace Extensions
 
                 await Task.Delay(10);
             }
+        }
+
+        public static void SendFileRequest(this EncryptedPeer server, Download download)
+        {
+            var message = new NetDataWriter();
+            message.Put((byte)NetMessageType.FileRequest);
+            message.Put(download.Hash);
+            message.Put(download.ID);
+
+            server.SendEncrypted(message, 0);
         }
     }
 }

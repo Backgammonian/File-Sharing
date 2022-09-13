@@ -3,18 +3,30 @@ using System.Windows;
 
 namespace InputBox
 {
-    public partial class InputBoxWindow : Window
+    public sealed partial class InputBoxWindow : Window
     {
-        public InputBoxWindow(string title, string question, string defaultAnswer = "")
+        public InputBoxWindow()
         {
             InitializeComponent();
-
-            Title = title;
-            Question.Content = question;
-            UserAnswer.Text = defaultAnswer;
         }
 
-        public string Answer => UserAnswer.Text;
+        public string TitleText
+        {
+            get => Title;
+            set => Title = value;
+        }
+
+        public string QuestionText
+        {
+            get => Question.Text;
+            set => Question.Text = value;
+        }
+
+        public string AnswerText
+        {
+            get => Answer.Text;
+            set => Answer.Text = value;
+        }
 
         private void OnOkClicked(object sender, RoutedEventArgs e)
         {
@@ -23,8 +35,8 @@ namespace InputBox
 
         private void OnContentRendered(object sender, EventArgs e)
         {
-            UserAnswer.SelectAll();
-            UserAnswer.Focus();
+            Answer.SelectAll();
+            Answer.Focus();
         }
     }
 }

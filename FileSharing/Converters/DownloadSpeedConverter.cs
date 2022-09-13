@@ -5,7 +5,7 @@ using Extensions;
 
 namespace FileSharing.Converters
 {
-    public class DownloadSpeedConverter : IValueConverter
+    public sealed class DownloadSpeedConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

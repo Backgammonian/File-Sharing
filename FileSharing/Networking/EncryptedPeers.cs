@@ -8,7 +8,7 @@ using System.Net;
 
 namespace FileSharing.Networking
 {
-    public class EncryptedPeers : IEnumerable<EncryptedPeer>
+    public sealed class EncryptedPeers : IEnumerable<EncryptedPeer>
     {
         private readonly ConcurrentDictionary<int, EncryptedPeer> _cryptoPeers;
 

@@ -1,6 +1,6 @@
 ﻿namespace FileSharing.Models
 {
-    public class Indexer
+    public sealed class Indexer
     {
         public Indexer()
         {

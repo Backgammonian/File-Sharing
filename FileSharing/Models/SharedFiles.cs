@@ -9,7 +9,7 @@ using System.Diagnostics;
 
 namespace FileSharing.Models
 {
-    public class SharedFiles : IEnumerable<SharedFile>
+    public sealed class SharedFiles : IEnumerable<SharedFile>
     {
         private readonly ConcurrentDictionary<long, SharedFile> _files;
         private readonly Indexer _indexer;

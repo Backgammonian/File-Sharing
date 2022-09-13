@@ -6,7 +6,7 @@ using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
-    public class FilesFromServer
+    public sealed class FilesFromServer
     {
         private readonly ConcurrentDictionary<int, SharedFileInfo> _files;
         private readonly EncryptedPeer _server;

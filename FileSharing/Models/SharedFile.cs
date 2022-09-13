@@ -6,7 +6,7 @@ using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
-    public class SharedFile : ObservableObject
+    public sealed class SharedFile : ObservableObject
     {
         private FileStream? _stream;
         private bool _isHashCalculated;

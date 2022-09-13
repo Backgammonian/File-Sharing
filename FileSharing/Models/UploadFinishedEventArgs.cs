@@ -2,7 +2,7 @@
 
 namespace FileSharing.Models
 {
-    public class UploadEventArgs : EventArgs
+    public sealed class UploadEventArgs : EventArgs
     {
         public UploadEventArgs(string uploadID)
         {

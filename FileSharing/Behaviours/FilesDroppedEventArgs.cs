@@ -2,7 +2,7 @@
 
 namespace Behaviours
 {
-    public class FilesDroppedEventArgs : EventArgs
+    public sealed class FilesDroppedEventArgs : EventArgs
     {
         public FilesDroppedEventArgs(string[] filesPaths)
         {
