@@ -5,7 +5,7 @@ using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
-    public class Upload : ObservableObject
+    public sealed class Upload : ObservableObject
     {
         private readonly bool[] _fileSegmentsCheck;
         private long _numberOfAckedSegments;

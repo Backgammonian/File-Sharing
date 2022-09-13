@@ -132,7 +132,7 @@
                                                     Style="{StaticResource StackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource TitleStyle}" 
-                                                        Text="{Binding Destination.Peer, Converter={StaticResource IpEndPointConverter}, StringFormat={}Destination: {0}}"/>
+                                                        Text="{Binding Destination.EndPoint, Converter={StaticResource IpEndPointConverter}, StringFormat={}Destination: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
                                                         Text="{Binding FileName, StringFormat={}File name: {0}}"/>
@@ -188,7 +188,7 @@
                                                     Style="{StaticResource StackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource TitleStyle}" 
-                                                        Text="{Binding Peer, Converter={StaticResource IpEndPointConverter}, StringFormat={}Client: {0}}"/>
+                                                        Text="{Binding Peer.EndPoint, Converter={StaticResource IpEndPointConverter}, StringFormat={}Client: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
                                                         Text="{Binding Peer, Converter={StaticResource ConnectionStatusConverter}}"/>
@@ -289,7 +289,7 @@
                                                         Text="{Binding Name}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
-                                                        Text="{Binding Server, Converter={StaticResource EncryptedPeerConverter}, StringFormat={}Source: {0}}"/>
+                                                        Text="{Binding Server, Converter={StaticResource IpEndPointConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource BytesToMegabytesConverter}}"/>
@@ -352,7 +352,7 @@
                                                         Style="{StaticResource CancellationStatus}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PopUpTextBlock}" 
-                                                        Text="{Binding Server, Converter={StaticResource EncryptedPeerConverter}, StringFormat={}Source: {0}}"/>
+                                                        Text="{Binding Server, Converter={StaticResource IpEndPointConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PopUpTextBlock}" 
                                                         Text="{Binding Size, Converter={StaticResource BytesToMegabytesConverter}}" />

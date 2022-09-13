@@ -5,7 +5,7 @@ using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
-    public class FilesFromServers
+    public sealed class FilesFromServers
     {
         //server ID (from NetPeer object), list of files
         private readonly ConcurrentDictionary<int, FilesFromServer> _filesFromServers;

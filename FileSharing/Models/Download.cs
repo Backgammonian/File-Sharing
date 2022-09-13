@@ -11,7 +11,7 @@ using FileSharing.Networking.Utils;
 
 namespace FileSharing.Models
 {
-    public class Download : ObservableObject
+    public sealed class Download : ObservableObject
     {
         private const double _interval = 100.0;
 

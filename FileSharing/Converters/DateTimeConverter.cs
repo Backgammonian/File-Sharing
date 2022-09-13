@@ -5,7 +5,7 @@ using Extensions;
 
 namespace FileSharing.Converters
 {
-    public class DateTimeConverter : IValueConverter
+    public sealed class DateTimeConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

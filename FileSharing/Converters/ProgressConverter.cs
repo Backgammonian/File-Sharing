@@ -4,7 +4,7 @@ using System.Windows.Data;
 
 namespace FileSharing.Converters
 {
-    public class ProgressConverter : IValueConverter
+    public sealed class ProgressConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

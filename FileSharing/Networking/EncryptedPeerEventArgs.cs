@@ -2,7 +2,7 @@
 
 namespace FileSharing.Networking
 {
-    public class EncryptedPeerEventArgs : EventArgs
+    public sealed class EncryptedPeerEventArgs : EventArgs
     {
         public EncryptedPeerEventArgs(int peerID)
         {

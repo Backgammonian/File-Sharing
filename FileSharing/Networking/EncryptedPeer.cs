@@ -11,7 +11,7 @@ using FileSharing.Networking.Utils;
 
 namespace FileSharing.Networking
 {
-    public class EncryptedPeer : ObservableObject
+    public sealed class EncryptedPeer : ObservableObject
     {
         private const double _interval = 100.0;
         private const int _timeout = 30;
@@ -71,6 +71,7 @@ namespace FileSharing.Networking
         public int Id => _peer.Id;
         public IPEndPoint EndPoint => _peer.EndPoint;
         public bool IsSecurityEnabled => _cryptography.IsEnabled;
+        public ConnectionState ConnectionStatus => _peer.ConnectionState;
 
         public DateTime StartTime
         {

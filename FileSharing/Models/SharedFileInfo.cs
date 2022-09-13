@@ -2,7 +2,7 @@
 
 namespace FileSharing.Models
 {
-    public class SharedFileInfo
+    public sealed class SharedFileInfo
     {
         public SharedFileInfo()
         {

@@ -10,7 +10,6 @@
     <converters:IPEndPointConverter x:Key="IpEndPointConverter"/>
     <converters:ProgressConverter x:Key="ProgressConverter"/>
     <converters:TimeSpanConverter x:Key="TimeSpanConverter"/>
-    <converters:EncryptedPeerConverter x:Key="EncryptedPeerConverter"/>
 
     <SolidColorBrush x:Key="ServerColor" Color="LightGreen" Opacity="0.5"/>
     <SolidColorBrush x:Key="ClientColor" Color="Blue" Opacity="0.1"/>
@@ -81,6 +80,7 @@
             <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="True">
                 <Setter Property="Text" Value="🔒 Encrypted"/>
             </DataTrigger>
+            
             <DataTrigger Binding="{Binding IsSecurityEnabled}" Value="False">
                 <Setter Property="Text" Value="🔓 NOT encrypted"/>
             </DataTrigger>
@@ -124,10 +124,12 @@
                     Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
             </DataTrigger>
+            
             <DataTrigger Binding="{Binding IsDownloaded}" Value="True">
                 <Setter Property="Visibility" Value="Collapsed"/>
                 <Setter Property="IsEnabled" Value="False"/>
             </DataTrigger>
+            
             <DataTrigger Binding="{Binding IsCancelled}" Value="True">
                 <Setter Property="Visibility" Value="Collapsed"/>
                 <Setter Property="IsEnabled" Value="False"/>

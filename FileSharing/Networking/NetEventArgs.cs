@@ -3,7 +3,7 @@ using LiteNetLib.Utils;
 
 namespace FileSharing.Networking
 {
-    public class NetEventArgs : EventArgs
+    public sealed class NetEventArgs : EventArgs
     {
         public NetEventArgs(EncryptedPeer cryptoPeer, NetDataReader message)
         {
