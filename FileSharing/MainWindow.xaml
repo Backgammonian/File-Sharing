@@ -76,6 +76,7 @@
                                     <ListBox
                                         Background="{StaticResource ServerColor}"
                                         ItemsSource="{Binding SharedFiles}"
+                                        ScrollViewer.CanContentScroll="False"
                                         localBehaviours:DropFilesBehavior.FilesDropCommand="{Binding GetFileToShareCommand}"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
@@ -125,6 +126,7 @@
                                     <ListBox
                                         Background="{StaticResource ServerColor}"
                                         ItemsSource="{Binding Uploads}"
+                                        ScrollViewer.CanContentScroll="False"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -181,6 +183,7 @@
                                     <ListBox
                                         Background="{StaticResource ServerColor}"
                                         ItemsSource="{Binding Clients}"
+                                        ScrollViewer.CanContentScroll="False"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -188,10 +191,10 @@
                                                     Style="{StaticResource StackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource TitleStyle}" 
-                                                        Text="{Binding Peer.EndPoint, Converter={StaticResource IpEndPointConverter}, StringFormat={}Client: {0}}"/>
+                                                        Text="{Binding EndPoint, Converter={StaticResource IpEndPointConverter}, StringFormat={}Client: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
-                                                        Text="{Binding Peer, Converter={StaticResource ConnectionStatusConverter}}"/>
+                                                        Text="{Binding ConnectionStatus}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PeerEncryptionStatus}"/>
                                                     <TextBlock 
@@ -279,6 +282,7 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding AvailableFiles}"
+                                        ScrollViewer.CanContentScroll="False"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -328,6 +332,7 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding Downloads}"
+                                        ScrollViewer.CanContentScroll="False"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -402,6 +407,7 @@
                                     <ListBox
                                         Background="{StaticResource ClientColor}"
                                         ItemsSource="{Binding Servers}"
+                                        ScrollViewer.CanContentScroll="False"
                                         localBehaviours:ListBoxBehaviours.AutoScrollToEnd="True">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
@@ -409,10 +415,10 @@
                                                     Style="{StaticResource StackPanelInListBoxStyle}">
                                                     <TextBlock 
                                                         Style="{StaticResource TitleStyle}" 
-                                                        Text="{Binding Peer, Converter={StaticResource IpEndPointConverter}}"/>
+                                                        Text="{Binding EndPoint, Converter={StaticResource IpEndPointConverter}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
-                                                        Text="{Binding Peer, Converter={StaticResource ConnectionStatusConverter}}"/>
+                                                        Text="{Binding ConnectionStatus}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PeerEncryptionStatus}"/>
                                                     <TextBlock 

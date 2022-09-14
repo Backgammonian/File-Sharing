@@ -60,6 +60,7 @@ namespace FileSharing.ViewModels
             _downloads = new Downloads();
             _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
             _downloads.MissingSegmentsRequested += OnMissingFileSegmentsRequested;
+            _downloads.DownloadFinished += OnDownloadFinished;
 
             _server = new Server();
             _server.ClientAdded += OnClientAdded;
@@ -142,6 +143,14 @@ namespace FileSharing.ViewModels
             await server.RequestMissingFileSegments(args.DownloadID,
                 args.FileHash,
                 args.NumbersOfMissingSegments);
+        }
+
+        private void OnDownloadFinished(object? sender, DownloadFinishedEventArgs e)
+        {
+            Notify("Download is finished",
+                $"Download of file {e.DownloadedFileName} has finished!",
+                1500,
+                System.Windows.Forms.ToolTipIcon.Info);
         }
 
         private void OnClientAdded(object? sender, EncryptedPeerEventArgs e)
@@ -228,7 +237,7 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void OnServerMessageReceived(object? sender, NetEventArgs e)
+        private async Task OnServerMessageReceived(object? sender, NetEventArgs e)
         {
             var reader = e.Message;
             var client = e.CryptoPeer;
@@ -249,19 +258,19 @@ namespace FileSharing.ViewModels
                     break;
 
                 case NetMessageType.FileRequest:
-                    StartSendingFileToClient(client, reader);
+                    await StartSendingFileToClient(client, reader);
                     break;
 
                 case NetMessageType.FileSegment:
-                    SendFileSegmentToClient(client, reader);
+                    await SendFileSegmentToClient(client, reader);
                     break;
 
                 case NetMessageType.ResendFileSegment:
-                    ResendFileSegmentToClient(client, reader);
+                    await ResendFileSegmentToClient(client, reader);
                     break;
 
                 case NetMessageType.FileSegmentAck:
-                    ReceiveAckFromClient(client, reader);
+                    await ReceiveAckFromClient (client, reader);
                     break;
 
                 case NetMessageType.CancelDownload:
@@ -537,7 +546,7 @@ namespace FileSharing.ViewModels
         #endregion
 
         #region Methods for information exchange between clients and servers
-        private void StartSendingFileToClient(EncryptedPeer destination, NetDataReader reader)
+        private async Task StartSendingFileToClient(EncryptedPeer destination, NetDataReader reader)
         {
             if (!reader.TryGetString(out string fileHash) ||
                 !reader.TryGetString(out string uploadID))
@@ -563,22 +572,21 @@ namespace FileSharing.ViewModels
 
                 _uploads.Add(upload);
 
-                Debug.WriteLine("(FileSendRoutine) Upload " + uploadID + " has started!");
-
                 byte channelNumber = 0;
                 var initialSegmentsCount = upload.NumberOfSegments < Constants.ChannelsCount ? upload.NumberOfSegments : Constants.ChannelsCount;
-                //??????????????????????????????
-                Debug.WriteLine("(InitialSegmentsCount) " + initialSegmentsCount);
 
-                for (long numberOfSegment = 0; numberOfSegment < initialSegmentsCount; numberOfSegment++)
+                Debug.WriteLine($"(StartSendingFileToClient) Upload {uploadID} has started!");
+                Debug.WriteLine($"(StartSendingFileToClient) InitialSegmentsCount: {initialSegmentsCount}");
+
+                for (byte numberOfSegment = 0; numberOfSegment < initialSegmentsCount; numberOfSegment++)
                 {
-                    SendFileSegmentToClient(destination, channelNumber, upload.ID, numberOfSegment);
+                    await SendFileSegmentToClient (destination, channelNumber, upload.ID, numberOfSegment);
                     channelNumber += 1;
                 }
             }
         }
 
-        private void SendFileSegmentToClient(EncryptedPeer destination, NetDataReader reader)
+        private async Task SendFileSegmentToClient(EncryptedPeer destination, NetDataReader reader)
         {
             if (!reader.TryGetString(out string uploadID) ||
                 !reader.TryGetLong(out long numOfSegment) ||
@@ -587,10 +595,10 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            SendFileSegmentToClient(destination, channel, uploadID, numOfSegment);
+            await SendFileSegmentToClient(destination, channel, uploadID, numOfSegment);
         }
 
-        private void SendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, long numberOfSegment)
+        private async Task SendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, long numberOfSegment)
         {
             if (_uploads.Has(uploadID) &&
                 _uploads[uploadID].IsActive &&
@@ -602,14 +610,14 @@ namespace FileSharing.ViewModels
                     return;
                 }
 
-                if (file.TryReadSegment(numberOfSegment, out byte[] segment))
+                var segment = await file.TryReadSegment(numberOfSegment);
+                if (segment.Length > 0)
                 {
                     var message = new NetDataWriter();
                     message.Put((byte)NetMessageType.FileSegment);
                     message.Put(uploadID);
                     message.Put(numberOfSegment);
-                    var crc = CRC32.Compute(segment);
-                    message.Put(crc);
+                    message.Put(CRC32.Compute(segment));
                     message.Put(segment.Length);
                     message.Put(segment);
                     message.Put(channelNumber);
@@ -619,7 +627,7 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void ResendFileSegmentToClient(EncryptedPeer destination, NetDataReader reader)
+        private async Task ResendFileSegmentToClient(EncryptedPeer destination, NetDataReader reader)
         {
             if (!reader.TryGetString(out string uploadID) ||
                 !reader.TryGetString(out string fileHash) ||
@@ -639,7 +647,8 @@ namespace FileSharing.ViewModels
                     return;
                 }
 
-                if (file.TryReadSegment(numberOfSegment, out byte[] segment))
+                var segment = await file.TryReadSegment(numberOfSegment);
+                if (segment.Length > 0)
                 {
                     var message = new NetDataWriter();
                     message.Put((byte)NetMessageType.ResendFileSegment);
@@ -652,12 +661,8 @@ namespace FileSharing.ViewModels
                     message.Put(channelNumber);
 
                     destination.SendEncrypted(message, channelNumber);
+                    _uploads[uploadID].AddResendedSegment();
                 }
-            }
-
-            if (_uploads.Has(uploadID))
-            {
-                _uploads[uploadID].AddResendedSegment();
             }
         }
 
@@ -695,12 +700,11 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            var calculatedCrc = CRC32.Compute(jsonFilesList);
-            if (receivedCrc != calculatedCrc)
+            if (receivedCrc != CRC32.Compute(jsonFilesList))
             {
                 server.SendFilesListRequest();
 
-                Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received files list does not match: {0} != {1}", receivedCrc, calculatedCrc);
+                Debug.WriteLine("(ReceiveFilesList_Warning) CRC32's of received files list don't match!");
                 return;
             }
 
@@ -726,14 +730,10 @@ namespace FileSharing.ViewModels
             if (_downloads.HasDownload(downloadID) &&
                 _downloads[downloadID].IsActive)
             {
-                var calculatedCrc = CRC32.Compute(segment);
-
-                if (receivedCrc != calculatedCrc)
+                if (receivedCrc != CRC32.Compute(segment))
                 {
-                    Debug.WriteLine("(ProcessIncomingMessage_Warning) CRC32 of received file segment of {0} does not match: {1} != {2}",
-                        _downloads[downloadID].Name,
-                        receivedCrc,
-                        calculatedCrc);
+                    Debug.WriteLine("(ReceiveFileSegment_Warning) " +
+                        $"CRC32's of received file segment of { _downloads[downloadID].Name} don't match!");
 
                     server.RequestFileSegment(downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
                 }
@@ -760,7 +760,7 @@ namespace FileSharing.ViewModels
             }
         }
 
-        private void ReceiveAckFromClient(EncryptedPeer client, NetDataReader reader)
+        private async Task ReceiveAckFromClient(EncryptedPeer client, NetDataReader reader)
         {
             if (!reader.TryGetString(out string uploadID) ||
                 !reader.TryGetLong(out long numOfSegment) ||
@@ -780,7 +780,7 @@ namespace FileSharing.ViewModels
             }
 
             _uploads[uploadID].AddAck(numOfSegment);
-            SendFileSegmentToClient(client, channel, uploadID, _uploads[uploadID].NumberOfAckedSegments);
+            await SendFileSegmentToClient(client, channel, uploadID, _uploads[uploadID].NumberOfAckedSegments);
         }
 
 

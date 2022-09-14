@@ -33,7 +33,7 @@ namespace FileSharing.Networking
             _listenTask = new Task(() => Run(token));
         }
 
-        public event EventHandler<NetEventArgs>? MessageReceived;
+        public event AsyncEventHandler<NetEventArgs>? MessageReceived;
         public event EventHandler<EncryptedPeerEventArgs>? ClientAdded;
         public event EventHandler<EncryptedPeerEventArgs>? ClientRemoved;
 
