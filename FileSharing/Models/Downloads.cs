@@ -16,9 +16,9 @@ namespace FileSharing.Models
             _downloads = new ConcurrentDictionary<string, Download>();
         }
 
-        public delegate Task AsyncEventHandler<TEventArgs>(object? sender, TEventArgs e);
-        public event EventHandler<EventArgs>? DownloadsListUpdated;
         public event AsyncEventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
+        public event EventHandler<EventArgs>? DownloadsListUpdated;
+        public event EventHandler<DownloadFinishedEventArgs>? DownloadFinished;
 
         public IEnumerable<Download> DownloadsList => _downloads.Values;
 
@@ -39,6 +39,7 @@ namespace FileSharing.Models
                 download.TryOpenFile() &&
                 _downloads.TryAdd(download.ID, download))
             {
+                _downloads[download.ID].Finished += OnDownloadFinished;
                 _downloads[download.ID].FileRemoved += OnFileRemoved;
                 _downloads[download.ID].MissingSegmentsRequested += OnMissingFileSegmentsRequested;
                 DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
@@ -52,6 +53,7 @@ namespace FileSharing.Models
                 removedDownload != null)
             {
                 removedDownload.ShutdownFile();
+                removedDownload.Finished -= OnDownloadFinished;
                 removedDownload.FileRemoved -= OnFileRemoved;
                 removedDownload.MissingSegmentsRequested -= OnMissingFileSegmentsRequested;
                 DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
@@ -63,9 +65,17 @@ namespace FileSharing.Models
             DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
-        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
+        private async Task OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
         {
-            MissingSegmentsRequested?.Invoke(this, e);
+            if (MissingSegmentsRequested != null)
+            {
+                await MissingSegmentsRequested.Invoke(this, e);
+            }
+        }
+
+        private void OnDownloadFinished(object? sender, DownloadFinishedEventArgs e)
+        {
+            DownloadFinished?.Invoke(this, e);
         }
 
         public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)

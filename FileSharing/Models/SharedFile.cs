@@ -83,53 +83,38 @@ namespace FileSharing.Models
             return false;
         }
 
-        public bool TryReadSegment(long numberOfSegment, out byte[] fileSegment)
+        public async Task<byte[]> TryReadSegment(long numberOfSegment)
         {
-            if (TryReadSegmentInternal(numberOfSegment, out byte[] segment))
-            {
-                fileSegment = segment;
-
-                return true;
-            }
-            else
-            {
-                fileSegment = Array.Empty<byte>();
-
-                return false;
-            }
+            return await TryReadSegmentInternal(numberOfSegment);
         }
 
-        private bool TryReadSegmentInternal(long numberOfSegment, out byte[] segment)
+        private async Task<byte[]> TryReadSegmentInternal(long numberOfSegment)
         {
-            segment = Array.Empty<byte>();
-
             if (_stream == null)
             {
-                return false;
+                return Array.Empty<byte>();
             }
 
             try
             {
                 var buffer = new byte[Constants.FileSegmentSize];
                 _stream.Seek(numberOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
-                var readBytes = _stream.Read(buffer, 0, buffer.Length);
+                var readBytes = await _stream.ReadAsync(buffer);
 
                 if (readBytes == buffer.Length)
                 {
-                    segment = buffer;
+                    return buffer;
                 }
                 else
                 {
                     var specialBuffer = new byte[readBytes];
                     Buffer.BlockCopy(buffer, 0, specialBuffer, 0, readBytes);
-                    segment = specialBuffer;
+                    return specialBuffer;
                 }
-
-                return true;
             }
             catch (Exception)
             {
-                return false;
+                return Array.Empty<byte>();
             }
         }
     }

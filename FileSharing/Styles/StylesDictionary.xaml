@@ -4,7 +4,6 @@
     xmlns:converters="clr-namespace:FileSharing.Converters">
 
     <converters:BytesToMegabytesConverter x:Key="BytesToMegabytesConverter"/>
-    <converters:ConnectionStatusConverter x:Key="ConnectionStatusConverter"/>
     <converters:DateTimeConverter x:Key="DateTimeConverter"/>
     <converters:DownloadSpeedConverter x:Key="DownloadSpeedConverter"/>
     <converters:IPEndPointConverter x:Key="IpEndPointConverter"/>

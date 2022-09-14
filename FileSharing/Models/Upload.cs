@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using FileSharing.Networking;
+using System.Threading;
 
 namespace FileSharing.Models
 {
@@ -24,19 +25,18 @@ namespace FileSharing.Models
             FileHash = fileHash;
             Destination = destination;
             NumberOfSegments = numberOfSegments;
-            NumberOfAckedSegments = Constants.ChannelsCount - 1;
+            NumberOfAckedSegments = 0;
             IsFinished = false;
             IsCancelled = false;
             StartTime = DateTime.Now;
             BytesSent = 0;
+            ResendedFileSegments = 0;
 
             _fileSegmentsCheck = new bool[NumberOfSegments];
             for (long i = 0; i < _fileSegmentsCheck.LongLength; i++)
             {
                 _fileSegmentsCheck[i] = false;
             }
-
-            ResendedFileSegments = 0;
         }
 
         public string ID { get; }
@@ -103,6 +103,15 @@ namespace FileSharing.Models
         {
             if (!IsActive)
             {
+                Debug.WriteLine($"(Upload_AddAck) Upload of file {FileName} is no longer active");
+
+                return;
+            }
+
+            if (IsFinished)
+            {
+                Debug.WriteLine($"(Upload_AddAck) Upload of file {FileName} is finished already!");
+
                 return;
             }
 
@@ -120,6 +129,8 @@ namespace FileSharing.Models
 
                 return;
             }
+
+            Debug.WriteLine($"(Upload_AddAck) Receiving ACK for file {FileName}: №{numOfSegment}!");
 
             _fileSegmentsCheck[numOfSegment] = true;
             NumberOfAckedSegments += 1;
