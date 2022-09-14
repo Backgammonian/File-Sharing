@@ -23,7 +23,7 @@ using Extensions;
 
 namespace FileSharing.ViewModels
 {
-    public partial class MainWindowViewModel : ObservableObject
+    public sealed partial class MainWindowViewModel : ObservableObject
     {
         private static readonly IPEndPoint _defaultServerAddress = new IPEndPoint(IPAddress.Parse("192.168.0.14"), 55000);
 

@@ -2,7 +2,7 @@
 
 namespace FileSharing.Models
 {
-    public class DownloadFinishedEventArgs :  EventArgs
+    public sealed class DownloadFinishedEventArgs : EventArgs
     {
         public DownloadFinishedEventArgs(string fileName)
         {
