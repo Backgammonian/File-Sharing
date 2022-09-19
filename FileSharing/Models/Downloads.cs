@@ -2,12 +2,11 @@
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections;
 using System.Linq;
 
 namespace FileSharing.Models
 {
-    public sealed class Downloads : IEnumerable<Download>
+    public sealed class Downloads
     {
         private readonly ConcurrentDictionary<string, Download> _downloads;
 
@@ -20,12 +19,12 @@ namespace FileSharing.Models
         public event EventHandler<EventArgs>? DownloadsListUpdated;
         public event EventHandler<DownloadFinishedEventArgs>? DownloadFinished;
 
-        public IEnumerable<Download> DownloadsList => _downloads.Values;
+        public IEnumerable<Download> DownloadsList =>
+            _downloads.Values.OrderBy(download => download.StartTime);
 
-        public Download this[string downloadID]
+        public Download? Get(string downloadID)
         {
-            get => _downloads[downloadID];
-            private set => _downloads[downloadID] = value;
+            return HasDownload(downloadID) ? _downloads[downloadID] : null;
         }
 
         public bool HasDownload(string downloadID)
@@ -33,7 +32,7 @@ namespace FileSharing.Models
             return _downloads.ContainsKey(downloadID);
         }
 
-        public void AddDownload(Download download)
+        public bool TryAddDownload(Download download)
         {
             if (!HasDownload(download.ID) &&
                 download.TryOpenFile() &&
@@ -43,7 +42,11 @@ namespace FileSharing.Models
                 _downloads[download.ID].FileRemoved += OnFileRemoved;
                 _downloads[download.ID].MissingSegmentsRequested += OnMissingFileSegmentsRequested;
                 DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
+
+                return true;
             }
+
+            return false;
         }
 
         public void RemoveDownload(string downloadID)
@@ -80,17 +83,18 @@ namespace FileSharing.Models
 
         public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
         {
+            downloadID = string.Empty;
+
             try
             {
-                var download = _downloads.Values.First(target => target.FilePath == downloadFilePath && target.IsActive);
+                var download = _downloads.Values.First(target =>
+                    target.FilePath == downloadFilePath && target.IsActive);
                 downloadID = download.ID;
 
                 return true;
             }
             catch (Exception)
             {
-                downloadID = string.Empty;
-
                 return false;
             }
         }
@@ -110,16 +114,6 @@ namespace FileSharing.Models
             {
                 download.Cancel();
             }
-        }
-
-        public IEnumerator<Download> GetEnumerator()
-        {
-            return _downloads.Values.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable)_downloads.Values).GetEnumerator();
         }
     }
 }

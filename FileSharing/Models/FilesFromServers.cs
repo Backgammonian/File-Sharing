@@ -20,10 +20,9 @@ namespace FileSharing.Models
 
         public List<SharedFileInfo> List { get; }
 
-        public FilesFromServer this[int serverID]
+        public FilesFromServer? Get(int serverID)
         {
-            get => _filesFromServers[serverID];
-            private set => _filesFromServers[serverID] = value;
+            return HasServer(serverID) ? _filesFromServers[serverID] : null;
         }
 
         public bool HasServer(int serverID)

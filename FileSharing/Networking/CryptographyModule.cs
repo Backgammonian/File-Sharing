@@ -8,6 +8,8 @@ namespace FileSharing.Networking
 {
     public sealed class CryptographyModule : ObservableObject
     {
+        public const string DefaultFileHash = "---";
+
         private readonly ECDiffieHellmanCng _ecdh;
         private readonly byte[] _publicKey;
         private readonly CngKey _signature;
@@ -162,7 +164,7 @@ namespace FileSharing.Networking
             }
             catch (Exception)
             {
-                return string.Empty;
+                return DefaultFileHash;
             }
         }
     }

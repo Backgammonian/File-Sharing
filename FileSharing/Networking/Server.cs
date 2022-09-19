@@ -62,12 +62,7 @@ namespace FileSharing.Networking
 
         public EncryptedPeer? GetClientByID(int clientID)
         {
-            if (_clients.Has(clientID))
-            {
-                return _clients[clientID];
-            }
-
-            return null;
+            return _clients.Get(clientID);
         }
 
         public void Stop()
@@ -119,32 +114,34 @@ namespace FileSharing.Networking
                     return;
                 }
 
-                if (_clients.Has(fromPeer.Id) &&
-                    _clients[fromPeer.Id].IsSecurityEnabled)
+                var client = _clients.Get(fromPeer.Id);
+
+                if (client != null &&
+                    client.IsSecurityEnabled)
                 {
-                    var data = _clients[fromPeer.Id].DecryptReceivedData(dataReader);
-                    MessageReceived?.Invoke(this, new NetEventArgs(_clients[fromPeer.Id], data));
+                    var data = client.DecryptReceivedData(dataReader);
+                    MessageReceived?.Invoke(this, new NetEventArgs(client, data));
                 }
                 else
-                if (!_clients.Has(fromPeer.Id))
+                if (client == null)
                 {
                     Debug.WriteLine($"(Server_NetworkReceiveEvent) Unknown client: {fromPeer.EndPoint}");
                 }
                 else
-                if (!_clients[fromPeer.Id].IsSecurityEnabled &&
+                if (!client.IsSecurityEnabled &&
                     dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
                     dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                 {
-                    _clients[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
-                    _clients[fromPeer.Id].SendPublicKeys();
+                    client.ApplyKeys(publicKey, signaturePublicKey);
+                    client.SendPublicKeys();
 
                     Debug.WriteLine($"(Server_NetworkReceiveEvent_Keys) Received keys from server {fromPeer.EndPoint}");
                 }
                 else
                 {
                     Debug.WriteLine($"(Server_NetworkReceiveEvent) Unknown error with peer {fromPeer.EndPoint}" +
-                        $"Is connection established: {_clients.Has(fromPeer.Id)}, " +
-                        $"Security: {(_clients.Has(fromPeer.Id) ? _clients[fromPeer.Id].IsSecurityEnabled : "unknown")}");
+                        $"Is client added: {_clients.Has(fromPeer.Id)}, " +
+                        $"Security: {(client != null ? client.IsSecurityEnabled : "unknown")}");
                 }
 
                 dataReader.Recycle();

@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Collections;
 using System.Diagnostics;
 using System.Net;
 
 namespace FileSharing.Networking
 {
-    public sealed class EncryptedPeers : IEnumerable<EncryptedPeer>
+    public sealed class EncryptedPeers
     {
         private readonly ConcurrentDictionary<int, EncryptedPeer> _cryptoPeers;
 
@@ -20,14 +19,14 @@ namespace FileSharing.Networking
         public event EventHandler<EncryptedPeerEventArgs>? PeerAdded;
         public event EventHandler<EncryptedPeerEventArgs>? PeerRemoved;
 
-        public IEnumerable<EncryptedPeer> List => _cryptoPeers.Values;
+        public IEnumerable<EncryptedPeer> List =>
+            _cryptoPeers.Values.OrderBy(peer => peer.StartTime);
         public IEnumerable<EncryptedPeer> EstablishedList =>
-            _cryptoPeers.Values.Where(cryptoPeer => cryptoPeer.IsSecurityEnabled);
+            _cryptoPeers.Values.Where(peer => peer.IsSecurityEnabled).OrderBy(peer => peer.StartTime);
 
-        public EncryptedPeer this[int peerId]
+        public EncryptedPeer? Get(int peerId)
         {
-            get => _cryptoPeers[peerId];
-            private set => _cryptoPeers[peerId] = value;
+            return Has(peerId) ? _cryptoPeers[peerId] : null;
         }
 
         public bool Has(int peerId)
@@ -73,16 +72,6 @@ namespace FileSharing.Networking
         private void OnCryptoPeerDisconnected(object? sender, EncryptedPeerEventArgs e)
         {
             PeerRemoved?.Invoke(this, e);
-        }
-
-        public IEnumerator<EncryptedPeer> GetEnumerator()
-        {
-            return _cryptoPeers.Values.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable)_cryptoPeers.Values).GetEnumerator();
         }
     }
 }

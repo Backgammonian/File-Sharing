@@ -18,12 +18,12 @@ namespace FileSharing.Models
         public event EventHandler<UploadEventArgs>? UploadAdded;
         public event EventHandler<UploadEventArgs>? UploadRemoved;
 
-        public IEnumerable<Upload> UploadsList => _uploads.Values;
+        public IEnumerable<Upload> UploadsList =>
+            _uploads.Values.OrderBy(upload => upload.StartTime);
 
-        public Upload this[string id]
+        public Upload? Get(string uploadID)
         {
-            get => _uploads[id];
-            private set => _uploads[id] = value;
+            return Has(uploadID) ? _uploads[uploadID] : null;
         }
 
         public bool Has(string uploadID)
