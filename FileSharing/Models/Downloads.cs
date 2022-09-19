@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace FileSharing.Models
 {
@@ -15,7 +15,7 @@ namespace FileSharing.Models
             _downloads = new ConcurrentDictionary<string, Download>();
         }
 
-        public event AsyncEventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
+        public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
         public event EventHandler<EventArgs>? DownloadsListUpdated;
         public event EventHandler<DownloadFinishedEventArgs>? DownloadFinished;
 
@@ -34,9 +34,21 @@ namespace FileSharing.Models
 
         public bool TryAddDownload(Download download)
         {
-            if (!HasDownload(download.ID) &&
-                download.TryOpenFile() &&
-                _downloads.TryAdd(download.ID, download))
+            if (HasDownload(download.ID))
+            {
+                Debug.WriteLine($"(TryAddDownload) Already have download with ID {download.ID}");
+
+                return false;
+            }
+
+            if (!download.TryOpenFile())
+            {
+                Debug.WriteLine($"(TryAddDownload) Can't create file for download with ID {download.ID}");
+
+                return false;
+            }
+
+            if (_downloads.TryAdd(download.ID, download))
             {
                 _downloads[download.ID].Finished += OnDownloadFinished;
                 _downloads[download.ID].FileRemoved += OnFileRemoved;
@@ -45,6 +57,8 @@ namespace FileSharing.Models
 
                 return true;
             }
+
+            Debug.WriteLine($"(TryAddDownload) Can't add download {download.ID} into collection");
 
             return false;
         }
@@ -68,12 +82,9 @@ namespace FileSharing.Models
             DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
-        private async Task OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
+        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
         {
-            if (MissingSegmentsRequested != null)
-            {
-                await MissingSegmentsRequested.Invoke(this, e);
-            }
+            MissingSegmentsRequested?.Invoke(this, e);
         }
 
         private void OnDownloadFinished(object? sender, DownloadFinishedEventArgs e)
@@ -95,6 +106,8 @@ namespace FileSharing.Models
             }
             catch (Exception)
             {
+                Debug.WriteLine($"(HasDownloadWithSamePath) No match with file {downloadFilePath}");
+
                 return false;
             }
         }

@@ -12,7 +12,7 @@ namespace FileSharing.Networking
                 result += value;
             }
 
-            return result / queue.Count;
+            return queue.Count > 0 ? result / queue.Count : 0;
         }
     }
 }

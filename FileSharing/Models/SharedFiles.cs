@@ -64,12 +64,17 @@ namespace FileSharing.Models
                 .ToList();
         }
 
-        public async Task AddFile(string filePath)
+        public void AddFile(string filePath)
         {
-            await AddFileRoutine(filePath);
+            var addFileTask = new Task(() =>
+            {
+                AddFileRoutine(filePath);
+            });
+
+            addFileTask.Start();
         }
 
-        private async Task AddFileRoutine(string filePath)
+        private void AddFileRoutine(string filePath)
         {
             if (!File.Exists(filePath))
             {
@@ -86,7 +91,7 @@ namespace FileSharing.Models
             {
                 SharedFileAdded?.Invoke(this, EventArgs.Empty);
 
-                if (await _files[sharedFile.Index].TryComputeHashOfFile())
+                if (_files[sharedFile.Index].TryComputeHashOfFile())
                 {
                     SharedFileHashCalculated?.Invoke(this, EventArgs.Empty);
                 }

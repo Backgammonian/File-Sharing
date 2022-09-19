@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Threading.Tasks;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 using FileSharing.Networking;
 
@@ -11,20 +10,37 @@ namespace FileSharing.Models
         private FileStream? _stream;
         private bool _isHashCalculated;
         private string _hash = string.Empty;
+        private string _name = string.Empty;
+        private long _size;
+        private long _numberOfSegments;
 
         public SharedFile(long index, string path)
         {
             Index = index;
             FilePath = path;
             IsHashCalculated = false;
-            Hash = string.Empty;
         }
 
         public long Index { get; }
         public string FilePath { get; }
-        public string Name { get; private set; } = string.Empty;
-        public long Size { get; private set; }
-        public long NumberOfSegments { get; private set; }
+
+        public string Name 
+        { 
+            get => _name; 
+            private set => SetProperty(ref _name, value); 
+        }
+
+        public long Size
+        {
+            get => _size;
+            private set => SetProperty(ref _size, value);
+        }
+
+        public long NumberOfSegments
+        {
+            get => _numberOfSegments;
+            private set => SetProperty(ref _numberOfSegments, value);
+        }
        
         public bool IsHashCalculated
         {
@@ -42,7 +58,7 @@ namespace FileSharing.Models
         {
             try
             {
-                _stream = File.OpenRead(FilePath);
+                _stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read, Constants.FileSegmentSize);
                 Name = Path.GetFileName(FilePath);
                 Size = _stream.Length;
                 NumberOfSegments = Size / Constants.FileSegmentSize + (Size % Constants.FileSegmentSize != 0 ? 1 : 0);
@@ -51,7 +67,6 @@ namespace FileSharing.Models
             }
             catch (Exception)
             {
-
                 return false;
             }
         }
@@ -64,31 +79,26 @@ namespace FileSharing.Models
             }
         }
 
-        public async Task<bool> TryComputeHashOfFile()
+        public bool TryComputeHashOfFile()
         {
             if (IsHashCalculated)
             {
                 return true;
             }
 
-            var fileHash = await CryptographyModule.ComputeFileHash(FilePath);
-            if (fileHash != string.Empty)
+            var fileHash = CryptographyModule.ComputeFileHash(FilePath);
+            if (fileHash == CryptographyModule.DefaultFileHash)
             {
-                Hash = fileHash;
-                IsHashCalculated = true;
-
-                return true;
+                return false;
             }
 
-            return false;
+            Hash = fileHash;
+            IsHashCalculated = true;
+
+            return true;
         }
 
-        public async Task<byte[]> TryReadSegment(long numberOfSegment)
-        {
-            return await TryReadSegmentInternal(numberOfSegment);
-        }
-
-        private async Task<byte[]> TryReadSegmentInternal(long numberOfSegment)
+        public byte[] TryReadSegment(long numberOfSegment)
         {
             if (_stream == null)
             {
@@ -99,7 +109,7 @@ namespace FileSharing.Models
             {
                 var buffer = new byte[Constants.FileSegmentSize];
                 _stream.Seek(numberOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
-                var readBytes = await _stream.ReadAsync(buffer);
+                var readBytes = _stream.Read(buffer);
 
                 if (readBytes == buffer.Length)
                 {
@@ -109,6 +119,7 @@ namespace FileSharing.Models
                 {
                     var specialBuffer = new byte[readBytes];
                     Buffer.BlockCopy(buffer, 0, specialBuffer, 0, readBytes);
+
                     return specialBuffer;
                 }
             }

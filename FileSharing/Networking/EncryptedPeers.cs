@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Diagnostics;
 using System.Net;
 
 namespace FileSharing.Networking
@@ -53,8 +52,6 @@ namespace FileSharing.Networking
             {
                 _cryptoPeers[cryptoPeer.Id].PeerDisconnected += OnCryptoPeerDisconnected;
                 PeerAdded?.Invoke(this, new EncryptedPeerEventArgs(cryptoPeer.Id));
-
-                Debug.WriteLine($"(CryptoPeers_Add) Adding peer {cryptoPeer.EndPoint} with id {cryptoPeer.Id}");
             }
         }
 

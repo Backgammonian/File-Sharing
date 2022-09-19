@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Layers;
 using LiteNetLib.Utils;
+using Extensions;
 
 namespace FileSharing.Networking
 {
@@ -33,7 +33,7 @@ namespace FileSharing.Networking
             _listenTask = new Task(() => Run(token));
         }
 
-        public event AsyncEventHandler<NetEventArgs>? MessageReceived;
+        public event EventHandler<NetEventArgs>? MessageReceived;
         public event EventHandler<EncryptedPeerEventArgs>? ClientAdded;
         public event EventHandler<EncryptedPeerEventArgs>? ClientRemoved;
 
@@ -94,23 +94,17 @@ namespace FileSharing.Networking
             {
                 var client = new EncryptedPeer(peer);
                 _clients.Add(client);
-
-                Debug.WriteLine($"(Server_PeerConnectedEvent) New connection: {peer.EndPoint}");
             };
 
             _listener.PeerDisconnectedEvent += (peer, disconnectInfo) =>
             {
                 _clients.Remove(peer.Id);
-
-                Debug.WriteLine($"(Server_PeerDisconnectedEvent) Peer {peer.EndPoint} disconnected, info: {disconnectInfo.Reason}");
             };
 
             _listener.NetworkReceiveEvent += (fromPeer, dataReader, deliveryMethod) =>
             {
                 if (dataReader.AvailableBytes == 0)
                 {
-                    Debug.WriteLine($"(Server_NetworkReceiveEvent) Empty payload from {fromPeer.EndPoint}");
-
                     return;
                 }
 
@@ -120,28 +114,17 @@ namespace FileSharing.Networking
                     client.IsSecurityEnabled)
                 {
                     var data = client.DecryptReceivedData(dataReader);
+
                     MessageReceived?.Invoke(this, new NetEventArgs(client, data));
                 }
                 else
-                if (client == null)
-                {
-                    Debug.WriteLine($"(Server_NetworkReceiveEvent) Unknown client: {fromPeer.EndPoint}");
-                }
-                else
-                if (!client.IsSecurityEnabled &&
+                if (client != null &&
+                    !client.IsSecurityEnabled &&
                     dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
                     dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                 {
                     client.ApplyKeys(publicKey, signaturePublicKey);
                     client.SendPublicKeys();
-
-                    Debug.WriteLine($"(Server_NetworkReceiveEvent_Keys) Received keys from server {fromPeer.EndPoint}");
-                }
-                else
-                {
-                    Debug.WriteLine($"(Server_NetworkReceiveEvent) Unknown error with peer {fromPeer.EndPoint}" +
-                        $"Is client added: {_clients.Has(fromPeer.Id)}, " +
-                        $"Security: {(client != null ? client.IsSecurityEnabled : "unknown")}");
                 }
 
                 dataReader.Recycle();
