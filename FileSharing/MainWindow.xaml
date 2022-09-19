@@ -360,10 +360,13 @@
                                                         Text="{Binding Server, Converter={StaticResource IpEndPointConverter}, StringFormat={}Source: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PopUpTextBlock}" 
-                                                        Text="{Binding Size, Converter={StaticResource BytesToMegabytesConverter}}" />
+                                                        Text="{Binding Size, Converter={StaticResource BytesToMegabytesConverter}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PopUpTextBlock}" 
-                                                        Text="{Binding Hash, StringFormat={}SHA256 Hash: {0}}" />
+                                                        Text="{Binding Hash, StringFormat={}SHA256 Hash: {0}}"/>
+                                                    <TextBlock 
+                                                        Style="{StaticResource CalculatedHashTextBlock}" 
+                                                        Text="{Binding CalculatedHash, StringFormat={}SHA256 Hash of received file: {0}}"/>
                                                     <Button
                                                         Style="{StaticResource CancellationButton}"
                                                         Command="{Binding DataContext.CancelDownloadCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"

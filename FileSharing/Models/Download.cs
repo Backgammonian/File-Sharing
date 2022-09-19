@@ -33,6 +33,7 @@ namespace FileSharing.Models
         private DateTime _oldDownloadTimeStamp, _newDownloadTimeStamp;
         private long _bytesDownloaded;
         private double _downloadSpeed;
+        private string _calculatedHash = string.Empty;
 
         public Download(SharedFileInfo availableFile, EncryptedPeer server, string path)
         {
@@ -49,6 +50,8 @@ namespace FileSharing.Models
             BytesDownloaded = 0;
             DownloadSpeed = 0;
             HashVerificationStatus = HashVerificationStatus.None;
+            StartTime = DateTime.Now;
+            CalculatedHash = string.Empty;
 
             _fileSegmentsCheck = new bool[NumberOfSegments];
             for (long i = 0; i < _fileSegmentsCheck.LongLength; i++)
@@ -82,6 +85,7 @@ namespace FileSharing.Models
         public long NumberOfSegments { get; }
         public string Hash { get; }
         public EncryptedPeer Server { get; }
+        public DateTime StartTime { get; }
         public bool IsActive => !IsCancelled && !IsDownloaded;
 
         public bool IsDownloaded
@@ -130,6 +134,12 @@ namespace FileSharing.Models
             private set => SetProperty(ref _progress, value);
         }
 
+        public string CalculatedHash
+        {
+            get => _calculatedHash;
+            private set => SetProperty(ref _calculatedHash, value);
+        }
+
         private void OnDownloadSpeedCounterTick(object? sender, EventArgs e)
         {
             _oldAmountOfDownloadedBytes = _newAmountOfDownloadedBytes;
@@ -152,7 +162,7 @@ namespace FileSharing.Models
             DownloadSpeed = _downloadSpeedValues.CalculateAverageValue();
         }
 
-        //async void is kinda bad practice but I don't know better solution for this
+        //async void is kind of a bad practice but I don't know better solution for this
         private async void OnMissingSegmentsTimerTick(object? sender, EventArgs e)
         {
             if (!IsActive)
@@ -329,19 +339,19 @@ namespace FileSharing.Models
             }
 
             HashVerificationStatus = HashVerificationStatus.Started;
-            var calculatedHash = await CryptographyModule.ComputeFileHash(FilePath);
+            CalculatedHash = await CryptographyModule.ComputeFileHash(FilePath);
 
-            Debug.WriteLine($"(VerifyHash) Calculated hash: {calculatedHash}");
+            Debug.WriteLine($"(VerifyHash) Calculated hash: {CalculatedHash}");
             Debug.WriteLine($"(VerifyHash) Original hash: {Hash}");
 
-            if (calculatedHash == string.Empty)
+            if (CalculatedHash == CryptographyModule.DefaultFileHash)
             {
                 HashVerificationStatus = HashVerificationStatus.Failed;
 
                 Debug.WriteLine("(VerifyHash) Hash verification has failed.");
             }
             else
-            if (calculatedHash == Hash)
+            if (CalculatedHash == Hash)
             {
                 HashVerificationStatus = HashVerificationStatus.Positive;
 

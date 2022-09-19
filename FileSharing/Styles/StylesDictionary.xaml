@@ -191,4 +191,13 @@
             </DataTrigger>
         </Style.Triggers>
     </Style>
+
+    <Style x:Key="CalculatedHashTextBlock" TargetType="TextBlock" BasedOn="{StaticResource PopUpTextBlock}">
+        <Setter Property="Visibility" Value="Hidden"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding HashVerificationStatus}" Value="Started">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

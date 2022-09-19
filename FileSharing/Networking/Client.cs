@@ -63,29 +63,25 @@ namespace FileSharing.Networking
             }
         }
 
-        public bool IsConnectedToServer(int serverID, out EncryptedPeer? server)
+        public bool IsConnectedToServer(int serverID, out EncryptedPeer? result)
         {
-            if (_servers.Has(serverID) &&
-                _servers[serverID].IsSecurityEnabled)
+            result = null;
+            var server = _servers.Get(serverID);
+
+            if (server != null &&
+                server.IsSecurityEnabled)
             {
-                server = _servers[serverID];
+                result = server;
 
                 return true;
             }
-
-            server = null;
 
             return false;
         }
 
         public EncryptedPeer? GetServerByID(int serverID)
         {
-            if (_servers.Has(serverID))
-            {
-                return _servers[serverID];
-            }
-
-            return null;
+            return _servers.Get(serverID);
         }
 
         public void Stop()
@@ -136,7 +132,7 @@ namespace FileSharing.Networking
 
                     var server = new EncryptedPeer(peer);
                     _servers.Add(server);
-                    _servers[server.Id].SendPublicKeys();
+                    server.SendPublicKeys();
                 }
                 else
                 {
@@ -162,23 +158,25 @@ namespace FileSharing.Networking
                     return;
                 }
 
-                if (_servers.Has(fromPeer.Id) &&
-                    _servers[fromPeer.Id].IsSecurityEnabled)
+                var server = _servers.Get(fromPeer.Id);
+
+                if (server != null &&
+                    server.IsSecurityEnabled)
                 {
-                    var data = _servers[fromPeer.Id].DecryptReceivedData(dataReader);
-                    MessageReceived?.Invoke(this, new NetEventArgs(_servers[fromPeer.Id], data));
+                    var data = server.DecryptReceivedData(dataReader);
+                    MessageReceived?.Invoke(this, new NetEventArgs(server, data));
                 }
                 else
-                if (!_servers.Has(fromPeer.Id))
+                if (server == null)
                 {
                     Debug.WriteLine($"(Client_NetworkReceiveEvent) No encrypted connection with this server: {fromPeer.EndPoint}");
                 }
                 else
-                if (!_servers[fromPeer.Id].IsSecurityEnabled &&
+                if (!server.IsSecurityEnabled &&
                     dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
                     dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                 {
-                    _servers[fromPeer.Id].ApplyKeys(publicKey, signaturePublicKey);
+                    server.ApplyKeys(publicKey, signaturePublicKey);
                     ServerConnected?.Invoke(this, new EncryptedPeerEventArgs(fromPeer.Id));
 
                     Debug.WriteLine($"(Client_NetworkReceiveEvent_Keys) Received keys from server {fromPeer.EndPoint}");
@@ -186,8 +184,8 @@ namespace FileSharing.Networking
                 else
                 {
                     Debug.WriteLine($"(Client_NetworkReceiveEvent) Unknown error with peer {fromPeer.EndPoint}" +
-                        $"Is connection established: {_servers.Has(fromPeer.Id)}, " +
-                        $"Security: {(_servers.Has(fromPeer.Id) ? _servers[fromPeer.Id].IsSecurityEnabled : "unknown")}");
+                        $"Is server added: {_servers.Has(fromPeer.Id)}, " +
+                        $"Security: {(server != null ? server.IsSecurityEnabled : "unknown")}");
                 }
 
                 dataReader.Recycle();

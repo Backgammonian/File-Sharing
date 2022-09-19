@@ -118,19 +118,19 @@ namespace FileSharing.Models
             if (numOfSegment < 0 ||
                 numOfSegment >= NumberOfSegments)
             {
-                Debug.WriteLine($"(Upload_AddAck) File {FileName}: wrong number of incoming file segment!");
+                Debug.WriteLine($"(Upload_AddAck) File {FileName}: wrong number of incoming file segment");
 
                 return;
             }
 
             if (_fileSegmentsCheck[numOfSegment])
             {
-                Debug.WriteLine($"(Upload_AddAck) File {FileName}: already sent segment {numOfSegment}!");
+                Debug.WriteLine($"(Upload_AddAck) File {FileName}: already sent segment {numOfSegment}");
 
                 return;
             }
 
-            Debug.WriteLine($"(Upload_AddAck) Receiving ACK for file {FileName}: №{numOfSegment}!");
+            Debug.WriteLine($"(Upload_AddAck) Receiving ACK for file {FileName}: #{numOfSegment}");
 
             _fileSegmentsCheck[numOfSegment] = true;
             NumberOfAckedSegments += 1;

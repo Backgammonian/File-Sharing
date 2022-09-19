@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections;
 using System.IO;
 using System.Diagnostics;
 
 namespace FileSharing.Models
 {
-    public sealed class SharedFiles : IEnumerable<SharedFile>
+    public sealed class SharedFiles
     {
         private readonly ConcurrentDictionary<long, SharedFile> _files;
         private readonly Indexer _indexer;
@@ -27,12 +26,6 @@ namespace FileSharing.Models
 
         public IEnumerable<SharedFile> SharedFilesList => _files.Values;
 
-        public SharedFile this[long index]
-        {
-            get => _files[index];
-            private set => _files[index] = value;
-        }
-
         public bool HasFile(long index)
         {
             return _files.ContainsKey(index);
@@ -40,20 +33,22 @@ namespace FileSharing.Models
 
         public bool HasFile(string fileHash)
         {
-            return _files.Values.Any(sharedFile => sharedFile.Hash == fileHash);
+            return _files.Values.Any(sharedFile =>
+                sharedFile.Hash == fileHash);
         }
 
         public bool HasFileAvailable(string fileHash)
         {
-            return _files.Values.Any(sharedFile => sharedFile.Hash == fileHash &&
-                sharedFile.IsHashCalculated);
+            return _files.Values.Any(sharedFile =>
+                sharedFile.Hash == fileHash && sharedFile.IsHashCalculated);
         }
 
         public SharedFile? GetByHash(string fileHash)
         {
             try
             {
-                return _files.Values.First(sharedFile => sharedFile.Hash == fileHash);
+                return _files.Values.First(sharedFile =>
+                    sharedFile.Hash == fileHash);
             }
             catch (Exception)
             {
@@ -126,16 +121,6 @@ namespace FileSharing.Models
             {
                 sharedFile.CloseStream();
             }
-        }
-
-        public IEnumerator<SharedFile> GetEnumerator()
-        {
-            return _files.Values.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable)_files.Values).GetEnumerator();
         }
     }
 }

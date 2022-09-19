@@ -20,12 +20,14 @@ using FileSharing.Networking.Utils;
 using InputBox;
 using Behaviours;
 using Extensions;
+using Helpers;
 
 namespace FileSharing.ViewModels
 {
     public sealed partial class MainWindowViewModel : ObservableObject
     {
-        private static readonly IPEndPoint _defaultServerAddress = new IPEndPoint(IPAddress.Parse("192.168.0.14"), 55000);
+        private const int _defaultPort = 55000;
+        private static readonly IPEndPoint _defaultServerAddress = new IPEndPoint(LocalAddressResolver.GetLocalAddress(), _defaultPort);
 
         private readonly Client _client;
         private readonly FilesFromServers _availableFiles;
@@ -363,8 +365,7 @@ namespace FileSharing.ViewModels
                 if (confirmDownloadRestart == MessageBoxResult.Yes)
                 {
                     SendFileDenial(server, downloadID);
-                    PrepareForFileReceiving(newDownload);
-                    server.SendFileRequest(newDownload);
+                    PrepareForFileReceiving(server, newDownload);
                 }
             }
             else
@@ -378,14 +379,12 @@ namespace FileSharing.ViewModels
 
                 if (confirmDownloadRepeat == MessageBoxResult.Yes)
                 {
-                    PrepareForFileReceiving(newDownload);
-                    server.SendFileRequest(newDownload);
+                    PrepareForFileReceiving(server, newDownload);
                 }
             }
             else
             {
-                PrepareForFileReceiving(newDownload);
-                server.SendFileRequest(newDownload);
+                PrepareForFileReceiving(server, newDownload);
             }
         }
 
@@ -560,6 +559,8 @@ namespace FileSharing.ViewModels
                 var desiredFile = _sharedFiles.GetByHash(fileHash);
                 if (desiredFile == null)
                 {
+                    //no such file
+
                     return;
                 }
 
@@ -580,7 +581,7 @@ namespace FileSharing.ViewModels
 
                 for (byte numberOfSegment = 0; numberOfSegment < initialSegmentsCount; numberOfSegment++)
                 {
-                    await SendFileSegmentToClient (destination, channelNumber, upload.ID, numberOfSegment);
+                    await SendFileSegmentToClient(destination, channelNumber, upload.ID, numberOfSegment);
                     channelNumber += 1;
                 }
             }
@@ -600,13 +601,17 @@ namespace FileSharing.ViewModels
 
         private async Task SendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, long numberOfSegment)
         {
-            if (_uploads.Has(uploadID) &&
-                _uploads[uploadID].IsActive &&
-                _sharedFiles.HasFileAvailable(_uploads[uploadID].FileHash))
+            var upload = _uploads.Get(uploadID);
+
+            if (upload != null &&
+                upload.IsActive &&
+                _sharedFiles.HasFileAvailable(upload.FileHash))
             {
-                var file = _sharedFiles.GetByHash(_uploads[uploadID].FileHash);
+                var file = _sharedFiles.GetByHash(upload.FileHash);
                 if (file == null)
                 {
+                    //no such file
+
                     return;
                 }
 
@@ -637,8 +642,10 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (_uploads.Has(uploadID) &&
-                _uploads[uploadID].IsActive &&
+            var upload = _uploads.Get(uploadID);
+
+            if (upload != null &&
+                upload.IsActive &&
                 _sharedFiles.HasFileAvailable(fileHash))
             {
                 var file = _sharedFiles.GetByHash(fileHash);
@@ -661,19 +668,20 @@ namespace FileSharing.ViewModels
                     message.Put(channelNumber);
 
                     destination.SendEncrypted(message, channelNumber);
-                    _uploads[uploadID].AddResendedSegment();
+                    upload.AddResendedSegment();
                 }
             }
         }
 
         private void SendFileDenial(EncryptedPeer server, string downloadID)
         {
-            if (!_downloads.HasDownload(downloadID))
+            var download = _downloads.Get(downloadID);
+            if (download == null)
             {
                 return;
             }
 
-            _downloads[downloadID].Cancel();
+            download.Cancel();
 
             var message = new NetDataWriter();
             message.Put((byte)NetMessageType.CancelDownload);
@@ -682,14 +690,17 @@ namespace FileSharing.ViewModels
             server.SendEncrypted(message, 0);
         }
 
-        private void PrepareForFileReceiving(Download download)
+        private void PrepareForFileReceiving(EncryptedPeer server, Download download)
         {
-            _downloads.AddDownload(download);
+            if (_downloads.TryAddDownload(download))
+            {
+                server.SendFileRequest(download);
 
-            Notify("New download",
-                $"File {download.Name} is now downloading!",
-                1500,
-                System.Windows.Forms.ToolTipIcon.Info);
+                Notify("New download",
+                    $"File {download.Name} is now downloading!",
+                    1500,
+                    System.Windows.Forms.ToolTipIcon.Info);
+            }
         }
 
         private void ReceiveFilesList(EncryptedPeer server, NetDataReader reader)
@@ -709,10 +720,15 @@ namespace FileSharing.ViewModels
             }
 
             var filesList = JsonConvert.DeserializeObject<List<SharedFileInfo>>(jsonFilesList);
-            if (filesList != null &&
-                _availableFiles.HasServer(server.Id))
+            if (filesList != null)
             {
-                _availableFiles[server.Id].UpdateWith(filesList);
+                var filesFromServer = _availableFiles.Get(server.Id);
+                if (filesFromServer == null)
+                {
+                    return;
+                }
+
+                filesFromServer.UpdateWith(filesList);
             }
         }
 
@@ -727,22 +743,24 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (_downloads.HasDownload(downloadID) &&
-                _downloads[downloadID].IsActive)
+            var download = _downloads.Get(downloadID);
+            if (download == null)
             {
-                if (receivedCrc != CRC32.Compute(segment))
-                {
-                    Debug.WriteLine("(ReceiveFileSegment_Warning) " +
-                        $"CRC32's of received file segment of { _downloads[downloadID].Name} don't match!");
+                return;
+            }
 
-                    server.RequestFileSegment(downloadID, _downloads[downloadID].Hash, numOfSegment, channel);
+            if (download.IsActive)
+            {
+                if (receivedCrc == CRC32.Compute(segment) &&
+                    await download.TryWrite(numOfSegment, segment, channel))
+                {
+                    server.SendFileSegmentAck(downloadID, numOfSegment, channel);
                 }
                 else
                 {
-                    if (await _downloads[downloadID].TryWrite(numOfSegment, segment, channel))
-                    {
-                        server.SendFileSegmentAck(downloadID, numOfSegment, channel);
-                    }
+                    Debug.WriteLine($"(ReceiveFileSegment_Error) {download.Name}");
+
+                    server.RequestFileSegment(downloadID, download.Hash, numOfSegment, channel);
                 }
             }
         }
@@ -754,10 +772,13 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (_downloads.HasDownload(downloadID))
+            var download = _downloads.Get(downloadID);
+            if (download == null)
             {
-                _downloads[downloadID].Cancel();
+                return;
             }
+
+            download.Cancel();
         }
 
         private async Task ReceiveAckFromClient(EncryptedPeer client, NetDataReader reader)
@@ -769,18 +790,19 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (!_uploads.Has(uploadID))
-            {
-                return;
-            }
-
             if (channel >= Constants.ChannelsCount || channel < 0)
             {
                 return;
             }
 
-            _uploads[uploadID].AddAck(numOfSegment);
-            await SendFileSegmentToClient(client, channel, uploadID, _uploads[uploadID].NumberOfAckedSegments);
+            var upload = _uploads.Get(uploadID);
+            if (upload == null)
+            {
+                return;
+            }
+
+            upload.AddAck(numOfSegment);
+            await SendFileSegmentToClient(client, channel, uploadID, upload.NumberOfAckedSegments);
         }
 
 
@@ -791,9 +813,10 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            if (_uploads.Has(uploadID))
+            var upload = _uploads.Get(uploadID);
+            if (upload != null)
             {
-                _uploads[uploadID].Cancel();
+                upload.Cancel();
             }
         }
         #endregion
@@ -804,7 +827,7 @@ namespace FileSharing.ViewModels
             _client.StartListening();
 
             var isFreePortChosen = false;
-            var defaultPort = 55000;
+            var defaultPort = _defaultPort;
             var port = 0;
             var portNumberDialog = new InputBoxWindow();
             do
