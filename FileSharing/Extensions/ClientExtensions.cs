@@ -21,6 +21,8 @@ namespace Extensions
 
         public static void SendFileSegmentAck(this EncryptedPeer server, string downloadID, long numOfSegment, byte channel)
         {
+            Debug.WriteLine($"(SendFileSegmentAck) {downloadID}");
+
             var message = new NetDataWriter();
             message.Put((byte)NetMessageType.FileSegmentAck);
             message.Put(downloadID);
@@ -44,21 +46,28 @@ namespace Extensions
             server.SendEncrypted(message.Data, channel);
         }
 
-        public static async Task RequestMissingFileSegments(this EncryptedPeer server, string downloadID, string fileHash, List<long> numbersOfMissingSegments)
+        public static void RequestMissingFileSegments(this EncryptedPeer server, string downloadID, string fileHash, List<long> numbersOfMissingSegments)
         {
-            for (int i = 0; i < numbersOfMissingSegments.Count; i++)
+            var requestMissingFileSegmentsTask = new Task(async () =>
             {
-                server.RequestFileSegment(downloadID,
-                    fileHash,
-                    numbersOfMissingSegments[i],
-                    Convert.ToByte(i % Constants.ChannelsCount));
+                for (int i = 0; i < numbersOfMissingSegments.Count; i++)
+                {
+                    server.RequestFileSegment(downloadID,
+                        fileHash,
+                        numbersOfMissingSegments[i],
+                        Convert.ToByte(i % Constants.ChannelsCount));
 
-                await Task.Delay(10);
-            }
+                    await Task.Delay(10);
+                }
+            });
+
+            requestMissingFileSegmentsTask.Start();
         }
 
         public static void SendFileRequest(this EncryptedPeer server, Download download)
         {
+            Debug.WriteLine($"(SendFileRequest) {download.FilePath}");
+
             var message = new NetDataWriter();
             message.Put((byte)NetMessageType.FileRequest);
             message.Put(download.Hash);

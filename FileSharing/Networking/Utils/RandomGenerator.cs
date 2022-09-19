@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace FileSharing.Networking.Utils
 {
@@ -61,13 +62,13 @@ namespace FileSharing.Networking.Utils
         {
             using var rnd = new RandomGenerator();
 
-            var result = "";
+            var result = new StringBuilder();
             for (var j = 0; j < length; j++)
             {
-                result += _chars[rnd.Next(0, _chars.Length - 1)];
+                result.Append(_chars[rnd.Next(0, _chars.Length - 1)]);
             }
 
-            return result;
+            return result.ToString();
         }
 
         public void Dispose()

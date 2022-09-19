@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
 
@@ -152,13 +151,13 @@ namespace FileSharing.Networking
             IsEnabled = false;
         }
 
-        public static async Task<string> ComputeFileHash(string path)
+        public static string ComputeFileHash(string path)
         {
             try
             {
                 using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 10 * 1024 * 1024);
                 using var sha = SHA256.Create();
-                var hash = await sha.ComputeHashAsync(fs);
+                var hash = sha.ComputeHash(fs);
 
                 return BitConverter.ToString(hash).ToLower().Replace("-", "");
             }

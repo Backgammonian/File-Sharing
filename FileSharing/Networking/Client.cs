@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
-using System.Diagnostics;
 using LiteNetLib;
 using LiteNetLib.Layers;
+using Extensions;
 
 namespace FileSharing.Networking
 {
@@ -35,7 +35,7 @@ namespace FileSharing.Networking
             _listenTask = new Task(() => Run(token));
         }
 
-        public event AsyncEventHandler<NetEventArgs>? MessageReceived;
+        public event EventHandler<NetEventArgs>? MessageReceived;
         public event EventHandler<EncryptedPeerEventArgs>? ServerAdded;
         public event EventHandler<EncryptedPeerEventArgs>? ServerConnected;
         public event EventHandler<EncryptedPeerEventArgs>? ServerRemoved;
@@ -105,8 +105,6 @@ namespace FileSharing.Networking
         {
             if (_servers.IsConnectedToEndPoint(serverAddress))
             {
-                Debug.WriteLine("Already connected to server " + serverAddress);
-
                 return;
             }
 
@@ -126,8 +124,6 @@ namespace FileSharing.Networking
 
                 if (_expectedPeers.Contains(peerString))
                 {
-                    Debug.WriteLine($"(Client_PeerConnectedEvent) Receiving expected connection from server: {peer.EndPoint}");
-
                     _expectedPeers.Remove(peer.EndPoint.ToString());
 
                     var server = new EncryptedPeer(peer);
@@ -136,8 +132,6 @@ namespace FileSharing.Networking
                 }
                 else
                 {
-                    Debug.WriteLine($"(Client_PeerConnectedEvent_Error) Connection from UNKNOWN server: {peer.EndPoint}, disconnecting...");
-
                     peer.Disconnect();
                 }
             };
@@ -145,16 +139,12 @@ namespace FileSharing.Networking
             _listener.PeerDisconnectedEvent += (peer, disconnectInfo) =>
             {
                 _servers.Remove(peer.Id);
-
-                Debug.WriteLine($"(Client_PeerDisconnectedEvent) Server {peer.EndPoint} disconnected, info: {disconnectInfo.Reason}");
             };
 
             _listener.NetworkReceiveEvent += (fromPeer, dataReader, deliveryMethod) =>
             {
                 if (dataReader.AvailableBytes == 0)
                 {
-                    Debug.WriteLine($"(Client_NetworkReceiveEvent) Empty payload from {fromPeer.EndPoint}");
-
                     return;
                 }
 
@@ -164,28 +154,17 @@ namespace FileSharing.Networking
                     server.IsSecurityEnabled)
                 {
                     var data = server.DecryptReceivedData(dataReader);
+
                     MessageReceived?.Invoke(this, new NetEventArgs(server, data));
                 }
                 else
-                if (server == null)
-                {
-                    Debug.WriteLine($"(Client_NetworkReceiveEvent) No encrypted connection with this server: {fromPeer.EndPoint}");
-                }
-                else
-                if (!server.IsSecurityEnabled &&
+                if (server != null &&
+                    !server.IsSecurityEnabled &&
                     dataReader.TryGetBytesWithLength(out byte[] publicKey) &&
                     dataReader.TryGetBytesWithLength(out byte[] signaturePublicKey))
                 {
                     server.ApplyKeys(publicKey, signaturePublicKey);
                     ServerConnected?.Invoke(this, new EncryptedPeerEventArgs(fromPeer.Id));
-
-                    Debug.WriteLine($"(Client_NetworkReceiveEvent_Keys) Received keys from server {fromPeer.EndPoint}");
-                }
-                else
-                {
-                    Debug.WriteLine($"(Client_NetworkReceiveEvent) Unknown error with peer {fromPeer.EndPoint}" +
-                        $"Is server added: {_servers.Has(fromPeer.Id)}, " +
-                        $"Security: {(server != null ? server.IsSecurityEnabled : "unknown")}");
                 }
 
                 dataReader.Recycle();

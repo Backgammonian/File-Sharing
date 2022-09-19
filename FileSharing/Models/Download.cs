@@ -13,31 +13,21 @@ namespace FileSharing.Models
 {
     public sealed class Download : ObservableObject
     {
-        private const double _interval = 100.0;
-        private static readonly TimeSpan _downloadSpeedCounterInterval = TimeSpan.FromMilliseconds(Convert.ToInt32(_interval));
         private static readonly TimeSpan _missingSegmentsTimerInterval = TimeSpan.FromMilliseconds(Constants.DisconnectionTimeout / 2);
 
-        private readonly Stopwatch _stopwatch;
-        private readonly Queue<double> _downloadSpeedValues;
-        private readonly bool[] _fileSegmentsCheck;
+        private readonly SpeedCounter _downloadSpeedCounter;
         private readonly long[] _incomingSegmentsChannelsStatistic;
-        private readonly DispatcherTimer _downloadSpeedCounter;
+        private readonly CheckArray _fileSegmentsCheckArray;
         private readonly DispatcherTimer _missingSegmentsTimer;
         private FileStream? _stream;
-        private decimal _progress;
         private bool _isDownloaded;
         private bool _isCancelled;
         private HashVerificationStatus _hashVerificationStatus;
-        private double _averageSpeed;
-        private long _oldAmountOfDownloadedBytes, _newAmountOfDownloadedBytes;
-        private DateTime _oldDownloadTimeStamp, _newDownloadTimeStamp;
-        private long _bytesDownloaded;
-        private double _downloadSpeed;
         private string _calculatedHash = string.Empty;
 
         public Download(SharedFileInfo availableFile, EncryptedPeer server, string path)
         {
-            ID = RandomGenerator.GetRandomString(20);
+            ID = RandomGenerator.GetRandomString(30);
             OriginalName = availableFile.Name;
             Name = Path.GetFileName(path);
             FilePath = path;
@@ -47,25 +37,17 @@ namespace FileSharing.Models
             Server = server;
             IsDownloaded = false;
             IsCancelled = false;
-            BytesDownloaded = 0;
-            DownloadSpeed = 0;
             HashVerificationStatus = HashVerificationStatus.None;
             StartTime = DateTime.Now;
-            CalculatedHash = string.Empty;
+            CalculatedHash = CryptographyModule.DefaultFileHash;
 
-            _fileSegmentsCheck = new bool[NumberOfSegments];
-            for (long i = 0; i < _fileSegmentsCheck.LongLength; i++)
-            {
-                _fileSegmentsCheck[i] = false;
-            }
+            _fileSegmentsCheckArray = new CheckArray(NumberOfSegments);
+            _fileSegmentsCheckArray.Filled += OnFileSegmentsCheckArrayFilled;
 
-            _stopwatch = new Stopwatch();
-            _downloadSpeedValues = new Queue<double>();
             _incomingSegmentsChannelsStatistic = new long[Constants.ChannelsCount];
 
-            _downloadSpeedCounter = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
-            _downloadSpeedCounter.Interval = _downloadSpeedCounterInterval;
-            _downloadSpeedCounter.Tick += OnDownloadSpeedCounterTick;
+            _downloadSpeedCounter = new SpeedCounter();
+            _downloadSpeedCounter.Updated += OnDownloadSpeedCounterUpdated;
 
             _missingSegmentsTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current.Dispatcher);
             _missingSegmentsTimer.Interval = _missingSegmentsTimerInterval;
@@ -74,7 +56,7 @@ namespace FileSharing.Models
         }
 
         public event EventHandler<EventArgs>? FileRemoved;
-        public event AsyncEventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
+        public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
         public event EventHandler<DownloadFinishedEventArgs>? Finished;
 
         public string ID { get; }
@@ -87,6 +69,10 @@ namespace FileSharing.Models
         public EncryptedPeer Server { get; }
         public DateTime StartTime { get; }
         public bool IsActive => !IsCancelled && !IsDownloaded;
+        public double DownloadSpeed => _downloadSpeedCounter.Speed;
+        public double AverageSpeed => _downloadSpeedCounter.AverageSpeed;
+        public long BytesDownloaded => _downloadSpeedCounter.Bytes;
+        public decimal Progress => _fileSegmentsCheckArray.Progress;
 
         public bool IsDownloaded
         {
@@ -106,64 +92,26 @@ namespace FileSharing.Models
             private set => SetProperty(ref _hashVerificationStatus, value);
         }
 
-        public long BytesDownloaded
-        {
-            get => _bytesDownloaded;
-            private set
-            {
-                SetProperty(ref _bytesDownloaded, value);
-                Progress = BytesDownloaded / Convert.ToDecimal(Size);
-            }
-        }
-
-        public double DownloadSpeed
-        {
-            get => _downloadSpeed;
-            private set => SetProperty(ref _downloadSpeed, value);
-        }
-
-        public double AverageSpeed
-        {
-            get => _averageSpeed;
-            private set => SetProperty(ref _averageSpeed, value);
-        }
-
-        public decimal Progress
-        {
-            get => _progress;
-            private set => SetProperty(ref _progress, value);
-        }
-
         public string CalculatedHash
         {
             get => _calculatedHash;
             private set => SetProperty(ref _calculatedHash, value);
         }
 
-        private void OnDownloadSpeedCounterTick(object? sender, EventArgs e)
+        private void UpdateParameters()
         {
-            _oldAmountOfDownloadedBytes = _newAmountOfDownloadedBytes;
-            _newAmountOfDownloadedBytes = BytesDownloaded;
-
-            _oldDownloadTimeStamp = _newDownloadTimeStamp;
-            _newDownloadTimeStamp = DateTime.Now;
-
-            var value = (_newAmountOfDownloadedBytes - _oldAmountOfDownloadedBytes) / (_newDownloadTimeStamp - _oldDownloadTimeStamp).TotalSeconds;
-            _downloadSpeedValues.Enqueue(value);
-
-            if (_downloadSpeedValues.Count > 20)
-            {
-                _downloadSpeedValues.Dequeue();
-            }
-
-            var seconds = _stopwatch.Elapsed.Seconds > 0 ? _stopwatch.Elapsed.Seconds : 0.01;
-            AverageSpeed = BytesDownloaded / Convert.ToDouble(seconds);
-
-            DownloadSpeed = _downloadSpeedValues.CalculateAverageValue();
+            OnPropertyChanged(nameof(DownloadSpeed));
+            OnPropertyChanged(nameof(AverageSpeed));
+            OnPropertyChanged(nameof(BytesDownloaded));
+            OnPropertyChanged(nameof(Progress));
         }
 
-        //async void is kind of a bad practice but I don't know better solution for this
-        private async void OnMissingSegmentsTimerTick(object? sender, EventArgs e)
+        private void OnDownloadSpeedCounterUpdated(object? sender, EventArgs e)
+        {
+            UpdateParameters();
+        }
+
+        private void OnMissingSegmentsTimerTick(object? sender, EventArgs e)
         {
             if (!IsActive)
             {
@@ -173,9 +121,9 @@ namespace FileSharing.Models
             }
 
             var numbersOfMissingSegments = new List<long>();
-            for (long i = 0; i < _fileSegmentsCheck.Length; i++)
+            for (long i = 0; i < _fileSegmentsCheckArray.Length; i++)
             {
-                if (!_fileSegmentsCheck[i])
+                if (_fileSegmentsCheckArray[i] == false)
                 {
                     numbersOfMissingSegments.Add(i);
                 }
@@ -183,88 +131,20 @@ namespace FileSharing.Models
 
             Debug.WriteLine($"(Download_MissingSegmentsTimer) Requesting {numbersOfMissingSegments.Count} segments");
 
-            if (MissingSegmentsRequested != null)
+            var missingSegmentsRequestTask = new Task(() =>
             {
-                await MissingSegmentsRequested.Invoke(this, new MissingSegmentsEventArgs(ID, Hash, numbersOfMissingSegments, Server));
-            }
+                MissingSegmentsRequested?.Invoke(this, new MissingSegmentsEventArgs(ID, Hash, numbersOfMissingSegments, Server));
+            });
+
+            missingSegmentsRequestTask.Start();
         }
 
-        public bool TryOpenFile()
+        private void OnFileSegmentsCheckArrayFilled(object? sender, EventArgs e)
         {
-            try
-            {
-                _downloadSpeedCounter.Start();
-                _stopwatch.Start();
-                _stream = File.OpenWrite(FilePath);
-
-                return true;
-            }
-            catch (Exception)
-            {
-                _downloadSpeedCounter.Stop();
-                _stopwatch.Stop();
-
-                return false;
-            }
+            FinishDownload();
         }
 
-        public void ShutdownFile()
-        {
-            DownloadSpeed = 0;
-            _downloadSpeedCounter.Stop();
-            _missingSegmentsTimer.Stop();
-            _stopwatch.Stop();
-
-            if (_stream != null)
-            {
-                _stream.Close();
-                _stream.Dispose();
-            }
-        }
-
-        public async Task<bool> TryWrite(long numOfSegment, byte[] segment, byte channel)
-        {
-            if (channel >= 0 &&
-                channel < Constants.ChannelsCount)
-            {
-                _incomingSegmentsChannelsStatistic[channel] += 1;
-            }
-
-            if (!IsActive)
-            {
-                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} is already downloaded/cancelled!");
-
-                return false;
-            }
-
-            if (numOfSegment < 0 ||
-                numOfSegment >= NumberOfSegments)
-            {
-                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} wrong number of incoming file segment!");
-
-                return false;
-            }
-
-            if (_fileSegmentsCheck[numOfSegment])
-            {
-                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} already have segment {numOfSegment}!");
-
-                return false;
-            }
-
-            try
-            {
-                await AddReceivedBytes(numOfSegment, segment);
-
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        private async Task AddReceivedBytes(long numOfSegment, byte[] segment)
+        private void AddReceivedBytes(long numOfSegment, byte[] segment)
         {
             _missingSegmentsTimer.Stop();
             _missingSegmentsTimer.Start();
@@ -277,18 +157,15 @@ namespace FileSharing.Models
             }
 
             _stream.Seek(numOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
-            await _stream.WriteAsync(segment, 0, segment.Length);
+            _stream.Write(segment);
 
-            _fileSegmentsCheck[numOfSegment] = true;
-
-            BytesDownloaded += segment.Length;
-            if (BytesDownloaded == Size)
-            {
-                await FinishDownload();
-            }
+            _downloadSpeedCounter.AddBytes(segment.Length);
+            _fileSegmentsCheckArray.Add(numOfSegment);
+ 
+            UpdateParameters();
         }
 
-        private async Task FinishDownload()
+        private void FinishDownload()
         {
             Finished?.Invoke(this, new DownloadFinishedEventArgs(Name));
             IsDownloaded = true;
@@ -300,10 +177,125 @@ namespace FileSharing.Models
             for (int i = 0; i < _incomingSegmentsChannelsStatistic.Length; i++)
             {
                 var percentage = _incomingSegmentsChannelsStatistic[i] / Convert.ToDouble(NumberOfSegments) * 100.0;
-                Debug.WriteLine($"\t Channel {i}: {percentage}%");
+                Debug.WriteLine($"\tChannel {i}: {percentage}%");
             }
 
-            await VerifyHash();
+            var verifyHashTask = new Task(() => VerifyHash());
+            verifyHashTask.Start();
+        }
+
+        private void VerifyHash()
+        {
+            if (HashVerificationStatus != HashVerificationStatus.None ||
+                !IsDownloaded)
+            {
+                return;
+            }
+
+            HashVerificationStatus = HashVerificationStatus.Started;
+            CalculatedHash = CryptographyModule.ComputeFileHash(FilePath);
+
+            Debug.WriteLine($"(VerifyHash) Calculated hash: {CalculatedHash}");
+            Debug.WriteLine($"(VerifyHash) Original hash: {Hash}");
+
+            if (CalculatedHash == CryptographyModule.DefaultFileHash)
+            {
+                HashVerificationStatus = HashVerificationStatus.Failed;
+
+                Debug.WriteLine("(VerifyHash) Hash verification has failed.");
+            }
+            else
+            if (CalculatedHash == Hash)
+            {
+                HashVerificationStatus = HashVerificationStatus.Positive;
+
+                Debug.WriteLine("(VerifyHash) Hash verification result is positive!");
+            }
+            else
+            {
+                HashVerificationStatus = HashVerificationStatus.Negative;
+
+                Debug.WriteLine("(VerifyHash) Hash verification result is negative.");
+            }
+        }
+
+        public bool TryOpenFile()
+        {
+            try
+            {
+                _stream = new FileStream(FilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None, Constants.FileSegmentSize);
+
+                return true;
+            }
+            catch (Exception)
+            {
+                _downloadSpeedCounter.Stop();
+
+                return false;
+            }
+        }
+
+        public void ShutdownFile()
+        {
+            _downloadSpeedCounter.Stop();
+            _missingSegmentsTimer.Stop();
+
+            if (_stream != null)
+            {
+                _stream.Close();
+                _stream.Dispose();
+            }
+
+            UpdateParameters();
+        }
+
+        public DownloadingFileWriteStatus TryWrite(uint receivedCrc, long numOfSegment, byte[] segment, byte channel)
+        {
+            if (channel >= 0 &&
+                channel < Constants.ChannelsCount)
+            {
+                _incomingSegmentsChannelsStatistic[channel] += 1;
+            }
+
+            if (!IsActive)
+            {
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} is already downloaded/cancelled!");
+
+                return DownloadingFileWriteStatus.DoNothing;
+            }
+
+            if (numOfSegment < 0 ||
+                numOfSegment >= NumberOfSegments)
+            {
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name}: wrong number of incoming file segment - {numOfSegment}");
+
+                return DownloadingFileWriteStatus.DoNothing;
+            }
+
+            if (receivedCrc != CRC32.Compute(segment))
+            {
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) CRC of file segment {Name} is wrong");
+
+                return DownloadingFileWriteStatus.Failure;
+            }
+
+            if (_fileSegmentsCheckArray[numOfSegment])
+            {
+                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} already have segment {numOfSegment}!");
+
+                return DownloadingFileWriteStatus.Success;
+            }
+
+            try
+            {
+                AddReceivedBytes(numOfSegment, segment);
+
+                return DownloadingFileWriteStatus.Success;
+            }
+            catch (Exception)
+            {
+                return DownloadingFileWriteStatus.Failure;
+            }
         }
 
         public void Cancel()
@@ -327,41 +319,6 @@ namespace FileSharing.Models
             }
             catch (Exception)
             {
-            }
-        }
-
-        public async Task VerifyHash()
-        {
-            if (HashVerificationStatus != HashVerificationStatus.None ||
-                !IsDownloaded)
-            {
-                return;
-            }
-
-            HashVerificationStatus = HashVerificationStatus.Started;
-            CalculatedHash = await CryptographyModule.ComputeFileHash(FilePath);
-
-            Debug.WriteLine($"(VerifyHash) Calculated hash: {CalculatedHash}");
-            Debug.WriteLine($"(VerifyHash) Original hash: {Hash}");
-
-            if (CalculatedHash == CryptographyModule.DefaultFileHash)
-            {
-                HashVerificationStatus = HashVerificationStatus.Failed;
-
-                Debug.WriteLine("(VerifyHash) Hash verification has failed.");
-            }
-            else
-            if (CalculatedHash == Hash)
-            {
-                HashVerificationStatus = HashVerificationStatus.Positive;
-
-                Debug.WriteLine("(VerifyHash) Hash verification result is positive!");
-            }
-            else
-            {
-                HashVerificationStatus = HashVerificationStatus.Negative;
-
-                Debug.WriteLine("(VerifyHash) Hash verification result is negative.");
             }
         }
     }
