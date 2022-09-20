@@ -70,7 +70,6 @@ namespace FileSharing.Models
             {
                 AddFileRoutine(filePath);
             });
-
             addFileTask.Start();
         }
 

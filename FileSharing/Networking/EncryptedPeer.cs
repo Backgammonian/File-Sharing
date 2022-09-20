@@ -110,6 +110,11 @@ namespace FileSharing.Networking
             }
         }
 
+        public void SendEncrypted(NetDataWriter message, byte channelNumber)
+        {
+            SendEncrypted(message.Data, channelNumber);
+        }
+
         public void SendEncrypted(byte[] message, byte channelNumber)
         {
             if (!IsSecurityEnabled)
@@ -132,11 +137,6 @@ namespace FileSharing.Networking
                 _uploadSpeedCounter.AddBytes(sendingMessage.Length);
                 _peer.Send(sendingMessage, channelNumber, DeliveryMethod.ReliableOrdered);
             }
-        }
-
-        public void SendEncrypted(NetDataWriter message, byte channelNumber)
-        {
-            SendEncrypted(message.Data, channelNumber);
         }
 
         public NetDataReader DecryptReceivedData(NetPacketReader message)
