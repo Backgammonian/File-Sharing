@@ -24,10 +24,10 @@ namespace FileSharing.Models
         public long Index { get; }
         public string FilePath { get; }
 
-        public string Name 
+        public string Name
         { 
-            get => _name; 
-            private set => SetProperty(ref _name, value); 
+            get => _name;
+            private set => SetProperty(ref _name, value);
         }
 
         public long Size

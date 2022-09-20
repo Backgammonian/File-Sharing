@@ -60,7 +60,6 @@ namespace FileSharing.ViewModels
 
             _downloads = new Downloads();
             _downloads.DownloadsListUpdated += OnDownloadsListUpdated;
-            _downloads.MissingSegmentsRequested += OnMissingFileSegmentsRequested;
             _downloads.DownloadFinished += OnDownloadFinished;
 
             _server = new Server();
@@ -136,14 +135,6 @@ namespace FileSharing.ViewModels
         private void OnDownloadsListUpdated(object? sender, EventArgs e)
         {
             OnPropertyChanged(nameof(Downloads));
-        }
-
-        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs args)
-        {
-            var server = args.Server;
-            server.RequestMissingFileSegments(args.DownloadID,
-                args.FileHash,
-                args.NumbersOfMissingSegments);
         }
 
         private void OnDownloadFinished(object? sender, DownloadFinishedEventArgs e)
@@ -573,35 +564,25 @@ namespace FileSharing.ViewModels
 
                 _uploads.Add(upload);
 
-                byte channelNumber = 0;
-                var initialSegmentsCount = upload.NumberOfSegments < Constants.ChannelsCount ? upload.NumberOfSegments : Constants.ChannelsCount;
-                upload.AddInitialSegments(initialSegmentsCount);
+                Debug.WriteLine($"(StartSendingFileToClient) Upload {uploadID} of file {desiredFile.Name} has started. " +
+                    $"Segments count: {desiredFile.NumberOfSegments}");
 
-                Debug.WriteLine($"(StartSendingFileToClient) Upload {uploadID} of file {desiredFile.Name} has started!");
-                Debug.WriteLine($"(StartSendingFileToClient) Number of segments: {upload.NumberOfSegments}");
-                Debug.WriteLine($"(StartSendingFileToClient) Initial segments count: {initialSegmentsCount}");
-
-                for (byte numberOfSegment = 0; numberOfSegment < initialSegmentsCount; numberOfSegment++)
-                {
-                    SendFileSegmentToClient(destination, channelNumber, upload.ID, numberOfSegment);
-                    channelNumber += 1;
-                }
+                SendFileSegmentToClient(destination, upload.ID, 0);
             }
         }
 
         private void SendFileSegmentToClient(EncryptedPeer destination, NetDataReader reader)
         {
             if (!reader.TryGetString(out string uploadID) ||
-                !reader.TryGetLong(out long numOfSegment) ||
-                !reader.TryGetByte(out byte channel))
+                !reader.TryGetLong(out long numOfSegment))
             {
                 return;
             }
 
-            SendFileSegmentToClient(destination, channel, uploadID, numOfSegment);
+            SendFileSegmentToClient(destination, uploadID, numOfSegment);
         }
 
-        private void SendFileSegmentToClient(EncryptedPeer destination, byte channelNumber, string uploadID, long numberOfSegment)
+        private void SendFileSegmentToClient(EncryptedPeer destination, string uploadID, long numberOfSegment)
         {
             var upload = _uploads.Get(uploadID);
 
@@ -627,9 +608,8 @@ namespace FileSharing.ViewModels
                     message.Put(CRC32.Compute(segment));
                     message.Put(segment.Length);
                     message.Put(segment);
-                    message.Put(channelNumber);
 
-                    destination.SendEncrypted(message, channelNumber);
+                    destination.SendEncrypted(message, 1);
                 }
             }
         }
@@ -638,8 +618,7 @@ namespace FileSharing.ViewModels
         {
             if (!reader.TryGetString(out string uploadID) ||
                 !reader.TryGetString(out string fileHash) ||
-                !reader.TryGetLong(out long numberOfSegment) ||
-                !reader.TryGetByte(out byte channelNumber))
+                !reader.TryGetLong(out long numberOfSegment))
             {
                 return;
             }
@@ -667,9 +646,8 @@ namespace FileSharing.ViewModels
                     message.Put(crc);
                     message.Put(segment.Length);
                     message.Put(segment);
-                    message.Put(channelNumber);
 
-                    destination.SendEncrypted(message, channelNumber);
+                    destination.SendEncrypted(message, 1);
                     upload.AddResendedSegment();
                 }
             }
@@ -705,7 +683,10 @@ namespace FileSharing.ViewModels
             }
             else
             {
-                Debug.WriteLine($"(PrepareForFileReceiving) Can't add download of file {download.OriginalName}");
+                Notify("Download error",
+                    $"Can't download file {download.Name}",
+                    1500,
+                    System.Windows.Forms.ToolTipIcon.Error);
             }
         }
 
@@ -745,8 +726,7 @@ namespace FileSharing.ViewModels
             if (!reader.TryGetString(out string downloadID) ||
                 !reader.TryGetLong(out long numOfSegment) ||
                 !reader.TryGetUInt(out uint receivedCrc) ||
-                !reader.TryGetBytesWithLength(out byte[] segment) ||
-                !reader.TryGetByte(out byte channel))
+                !reader.TryGetBytesWithLength(out byte[] segment))
             {
                 Debug.WriteLine("(ReceiveFileSegment) Can't retrieve the data");
 
@@ -761,7 +741,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            switch (download.TryWrite(receivedCrc, numOfSegment, segment, channel))
+            switch (download.TryWrite(receivedCrc, numOfSegment, segment))
             {
                 default:
                 case DownloadingFileWriteStatus.DoNothing:
@@ -771,15 +751,13 @@ namespace FileSharing.ViewModels
                 case DownloadingFileWriteStatus.Success:
                     Debug.WriteLine("(ReceiveFileSegment_Result) Success");
 
-                    server.SendFileSegmentAck(downloadID, numOfSegment, channel);
-
-                    Debug.WriteLine("(ReceiveFileSegment_Result) HELLOOOOOOOOOOOOOOOOOOOOOOOOO");
+                    server.SendFileSegmentAck(downloadID, numOfSegment);
                     break;
 
                 case DownloadingFileWriteStatus.Failure:
                     Debug.WriteLine("(ReceiveFileSegment_Result) Failure");
 
-                    server.RequestFileSegment(downloadID, download.Hash, numOfSegment, channel);
+                    server.RequestFileSegment(downloadID, download.Hash, numOfSegment);
                     break;
             }
         }
@@ -805,8 +783,7 @@ namespace FileSharing.ViewModels
             Debug.WriteLine($"(ReceiveAckFromClient) Start");
 
             if (!reader.TryGetString(out string uploadID) ||
-                !reader.TryGetLong(out long numOfSegment) ||
-                !reader.TryGetByte(out byte channel))
+                !reader.TryGetLong(out long numOfSegment))
             {
                 Debug.WriteLine($"(ReceiveAckFromClient) Can't get the data");
 
@@ -821,7 +798,7 @@ namespace FileSharing.ViewModels
                 return;
             }
 
-            switch (upload.AddAck(numOfSegment, channel))
+            switch (upload.AddAck(numOfSegment))
             {
                 default:
                 case UploadingFileAckStatus.DoNothing:
@@ -829,13 +806,13 @@ namespace FileSharing.ViewModels
                     break;
 
                 case UploadingFileAckStatus.Success:
-                    var freeSegmentNumber = upload.GetFreeSegmentNumber(channel);
+                    var freeSegmentNumber = upload.NumberOfAckedSegments;
 
                     Debug.WriteLine($"(ReceiveAckFromClient_Result) Success, sending new segment: {freeSegmentNumber}");
 
                     if (freeSegmentNumber != -1)
                     {
-                        SendFileSegmentToClient(client, channel, uploadID, freeSegmentNumber);
+                        SendFileSegmentToClient(client, uploadID, freeSegmentNumber);
                     }
                     break;
             }

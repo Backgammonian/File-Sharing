@@ -15,12 +15,41 @@ namespace FileSharing.Models
             _downloads = new ConcurrentDictionary<string, Download>();
         }
 
-        public event EventHandler<MissingSegmentsEventArgs>? MissingSegmentsRequested;
         public event EventHandler<EventArgs>? DownloadsListUpdated;
         public event EventHandler<DownloadFinishedEventArgs>? DownloadFinished;
 
         public IEnumerable<Download> DownloadsList =>
             _downloads.Values.OrderBy(download => download.StartTime);
+
+        private void OnFileRemoved(object? sender, EventArgs e)
+        {
+            DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void OnDownloadFinished(object? sender, DownloadFinishedEventArgs e)
+        {
+            DownloadFinished?.Invoke(this, e);
+        }
+
+        public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
+        {
+            downloadID = string.Empty;
+
+            try
+            {
+                var download = _downloads.Values.First(target =>
+                    target.FilePath == downloadFilePath && target.IsActive);
+                downloadID = download.ID;
+
+                return true;
+            }
+            catch (Exception)
+            {
+                Debug.WriteLine($"(HasDownloadWithSamePath) No match with file {downloadFilePath}");
+
+                return false;
+            }
+        }
 
         public Download? Get(string downloadID)
         {
@@ -52,7 +81,6 @@ namespace FileSharing.Models
             {
                 _downloads[download.ID].Finished += OnDownloadFinished;
                 _downloads[download.ID].FileRemoved += OnFileRemoved;
-                _downloads[download.ID].MissingSegmentsRequested += OnMissingFileSegmentsRequested;
                 DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
 
                 return true;
@@ -72,43 +100,7 @@ namespace FileSharing.Models
                 removedDownload.ShutdownFile();
                 removedDownload.Finished -= OnDownloadFinished;
                 removedDownload.FileRemoved -= OnFileRemoved;
-                removedDownload.MissingSegmentsRequested -= OnMissingFileSegmentsRequested;
                 DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
-            }
-        }
-
-        private void OnFileRemoved(object? sender, EventArgs e)
-        {
-            DownloadsListUpdated?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void OnMissingFileSegmentsRequested(object? sender, MissingSegmentsEventArgs e)
-        {
-            MissingSegmentsRequested?.Invoke(this, e);
-        }
-
-        private void OnDownloadFinished(object? sender, DownloadFinishedEventArgs e)
-        {
-            DownloadFinished?.Invoke(this, e);
-        }
-
-        public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
-        {
-            downloadID = string.Empty;
-
-            try
-            {
-                var download = _downloads.Values.First(target =>
-                    target.FilePath == downloadFilePath && target.IsActive);
-                downloadID = download.ID;
-
-                return true;
-            }
-            catch (Exception)
-            {
-                Debug.WriteLine($"(HasDownloadWithSamePath) No match with file {downloadFilePath}");
-
-                return false;
             }
         }
 
