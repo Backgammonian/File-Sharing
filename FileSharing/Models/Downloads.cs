@@ -31,23 +31,18 @@ namespace FileSharing.Models
             DownloadFinished?.Invoke(this, e);
         }
 
-        public bool HasDownloadWithSamePath(string downloadFilePath, out string downloadID)
+        public Download? HasDownloadWithSamePath(string downloadFilePath)
         {
-            downloadID = string.Empty;
-
             try
             {
-                var download = _downloads.Values.First(target =>
+                return _downloads.Values.First(target =>
                     target.FilePath == downloadFilePath && target.IsActive);
-                downloadID = download.ID;
-
-                return true;
             }
             catch (Exception)
             {
                 Debug.WriteLine($"(HasDownloadWithSamePath) No match with file {downloadFilePath}");
 
-                return false;
+                return null;
             }
         }
 
@@ -63,21 +58,9 @@ namespace FileSharing.Models
 
         public bool TryAddDownload(Download download)
         {
-            if (HasDownload(download.ID))
-            {
-                Debug.WriteLine($"(TryAddDownload) Already have download with ID {download.ID}");
-
-                return false;
-            }
-
-            if (!download.TryOpenFile())
-            {
-                Debug.WriteLine($"(TryAddDownload) Can't create file for download with ID {download.ID}");
-
-                return false;
-            }
-
-            if (_downloads.TryAdd(download.ID, download))
+            if (!HasDownload(download.ID) &&
+                download.TryOpenFile() &&
+                _downloads.TryAdd(download.ID, download))
             {
                 _downloads[download.ID].Finished += OnDownloadFinished;
                 _downloads[download.ID].FileRemoved += OnFileRemoved;

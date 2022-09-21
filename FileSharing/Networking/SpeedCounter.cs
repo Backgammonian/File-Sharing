@@ -8,7 +8,7 @@ namespace FileSharing.Networking
 {
     public sealed class SpeedCounter
     {
-        private const int _speedValuesInitialQueueCount = 20;
+        private const int _speedValuesInitialQueueCount = 10;
 
         private readonly DispatcherTimer _timer;
         private readonly Stopwatch _stopwatch;
@@ -42,7 +42,7 @@ namespace FileSharing.Networking
         public double AverageSpeed => _averageSpeed;
         public long Bytes => _currentAmountOfBytes;
 
-        private void OnTimerTick(object? sender, EventArgs e)
+        private void PerformCalculations()
         {
             _oldAmountOfBytes = _newAmountOfBytes;
             _newAmountOfBytes = _currentAmountOfBytes;
@@ -61,9 +61,16 @@ namespace FileSharing.Networking
             Updated?.Invoke(this, EventArgs.Empty);
         }
 
+        private void OnTimerTick(object? sender, EventArgs e)
+        {
+            PerformCalculations();
+        }
+
         public void AddBytes(long newBytes)
         {
             _currentAmountOfBytes += newBytes;
+
+            PerformCalculations();
         }
 
         public void Stop()

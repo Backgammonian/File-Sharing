@@ -31,24 +31,12 @@ namespace FileSharing.Models
             return _files.ContainsKey(index);
         }
 
-        public bool HasFile(string fileHash)
-        {
-            return _files.Values.Any(sharedFile =>
-                sharedFile.Hash == fileHash);
-        }
-
-        public bool HasFileAvailable(string fileHash)
-        {
-            return _files.Values.Any(sharedFile =>
-                sharedFile.Hash == fileHash && sharedFile.IsHashCalculated);
-        }
-
         public SharedFile? GetByHash(string fileHash)
         {
             try
             {
                 return _files.Values.First(sharedFile =>
-                    sharedFile.Hash == fileHash);
+                    sharedFile.Hash == fileHash && sharedFile.IsHashCalculated);
             }
             catch (Exception)
             {
@@ -77,7 +65,7 @@ namespace FileSharing.Models
         {
             if (!File.Exists(filePath))
             {
-                Debug.WriteLine("(AddFileRoutine) File doesn't exist");
+                Debug.WriteLine($"(AddFileRoutine) File {filePath} doesn't exist");
 
                 return;
             }
@@ -90,7 +78,7 @@ namespace FileSharing.Models
             {
                 SharedFileAdded?.Invoke(this, EventArgs.Empty);
 
-                if (_files[sharedFile.Index].TryComputeHashOfFile())
+                if (_files[sharedFile.Index].TryComputeFileHash())
                 {
                     SharedFileHashCalculated?.Invoke(this, EventArgs.Empty);
                 }
@@ -101,8 +89,6 @@ namespace FileSharing.Models
             }
             else
             {
-                Debug.WriteLine($"(AddFileRoutine) Something went wrong with file {filePath}");
-
                 RemoveFile(index);
                 SharedFileError?.Invoke(this, new SharedFileEventArgs(filePath));
             }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
+using LiteNetLib.Utils;
 using FileSharing.Networking;
 using FileSharing.Networking.Utils;
 
@@ -15,11 +16,13 @@ namespace FileSharing.Models
         private bool _isDownloaded;
         private bool _isCancelled;
         private HashVerificationStatus _hashVerificationStatus;
-        private string _calculatedHash = string.Empty;
+        private string _calculatedHash = CryptographyModule.DefaultFileHash;
         private long _numberOfReceivedSegments;
 
         public Download(SharedFileInfo availableFile, EncryptedPeer server, string path)
         {
+            _downloadSpeedCounter = new SpeedCounter();
+            _downloadSpeedCounter.Updated += OnDownloadSpeedCounterUpdated;
             ID = RandomGenerator.GetRandomString(30);
             OriginalName = availableFile.Name;
             Name = Path.GetFileName(path);
@@ -34,9 +37,6 @@ namespace FileSharing.Models
             StartTime = DateTime.Now;
             CalculatedHash = CryptographyModule.DefaultFileHash;
             NumberOfReceivedSegments = 0;
-
-            _downloadSpeedCounter = new SpeedCounter();
-            _downloadSpeedCounter.Updated += OnDownloadSpeedCounterUpdated;
         }
 
         public event EventHandler<EventArgs>? FileRemoved;
@@ -63,7 +63,12 @@ namespace FileSharing.Models
             private set
             {
                 SetProperty(ref _numberOfReceivedSegments, value);
-                OnPropertyChanged(nameof(Progress));
+                UpdateParameters();
+
+                if (NumberOfReceivedSegments == NumberOfSegments)
+                {
+                    FinishDownload();
+                }
             }
         }
 
@@ -91,6 +96,11 @@ namespace FileSharing.Models
             private set => SetProperty(ref _calculatedHash, value);
         }
 
+        private void OnDownloadSpeedCounterUpdated(object? sender, EventArgs e)
+        {
+            UpdateParameters();
+        }
+
         private void UpdateParameters()
         {
             OnPropertyChanged(nameof(DownloadSpeed));
@@ -99,23 +109,24 @@ namespace FileSharing.Models
             OnPropertyChanged(nameof(Progress));
         }
 
-        private void OnDownloadSpeedCounterUpdated(object? sender, EventArgs e)
+        private void AddReceivedBytes(byte[] segment)
         {
-            UpdateParameters();
-        }
-
-        private void AddReceivedBytes(long numOfSegment, byte[] segment)
-        {
-            _stream?.Seek(numOfSegment * Constants.FileSegmentSize, SeekOrigin.Begin);
-            _stream?.Write(segment);
-            _downloadSpeedCounter.AddBytes(segment.Length);
-            NumberOfReceivedSegments += 1;
-            if (NumberOfReceivedSegments == NumberOfSegments)
+            if (_stream == null)
             {
-                FinishDownload();
+                return;
             }
 
-            UpdateParameters();
+            try
+            {
+                _stream.Seek(NumberOfReceivedSegments * Constants.FileSegmentSize, SeekOrigin.Begin);
+                _stream.Write(segment);
+                _downloadSpeedCounter.AddBytes(segment.Length);
+                NumberOfReceivedSegments += 1;
+            }
+            catch (Exception)
+            {
+                Cancel();
+            }
         }
 
         private void FinishDownload()
@@ -124,7 +135,7 @@ namespace FileSharing.Models
             IsDownloaded = true;
             ShutdownFile();
 
-            Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File '{Name}' - bytes downloaded: {BytesDownloaded} of {Size}, " +
+            Debug.WriteLine($"(FinishDownload) File '{Name}' - bytes downloaded: {BytesDownloaded} of {Size}, " +
                 $"segments received: {NumberOfReceivedSegments} of {NumberOfSegments}");
 
             var verifyHashTask = new Task(() => VerifyHash());
@@ -142,27 +153,18 @@ namespace FileSharing.Models
             HashVerificationStatus = HashVerificationStatus.Started;
             CalculatedHash = CryptographyModule.ComputeFileHash(FilePath);
 
-            Debug.WriteLine($"(VerifyHash) Calculated hash: {CalculatedHash}");
-            Debug.WriteLine($"(VerifyHash) Original hash: {Hash}");
-
             if (CalculatedHash == CryptographyModule.DefaultFileHash)
             {
                 HashVerificationStatus = HashVerificationStatus.Failed;
-
-                Debug.WriteLine("(VerifyHash) Hash verification has failed.");
             }
             else
             if (CalculatedHash == Hash)
             {
                 HashVerificationStatus = HashVerificationStatus.Positive;
-
-                Debug.WriteLine("(VerifyHash) Hash verification result is positive!");
             }
             else
             {
                 HashVerificationStatus = HashVerificationStatus.Negative;
-
-                Debug.WriteLine("(VerifyHash) Hash verification result is negative.");
             }
         }
 
@@ -195,56 +197,27 @@ namespace FileSharing.Models
             UpdateParameters();
         }
 
-        public DownloadingFileWriteStatus TryWrite(uint receivedCrc, long numOfSegment, byte[] segment)
+        public void Write(byte[] segment)
         {
             if (!IsActive)
             {
-                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name} is already downloaded/cancelled!");
-
-                return DownloadingFileWriteStatus.DoNothing;
-            }
-
-            if (numOfSegment < 0 ||
-                numOfSegment >= NumberOfSegments)
-            {
-                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) File {Name}: wrong number of incoming file segment - {numOfSegment}");
-
-                return DownloadingFileWriteStatus.DoNothing;
-            }
-
-            if (receivedCrc != CRC32.Compute(segment))
-            {
-                Debug.WriteLine($"(DownloadFile_AddReceivedBytes) CRC of file segment {Name} is wrong");
-
-                return DownloadingFileWriteStatus.Failure;
-            }
-
-            try
-            {
-                AddReceivedBytes(numOfSegment, segment);
-
-                return DownloadingFileWriteStatus.Success;
-            }
-            catch (Exception)
-            {
-                return DownloadingFileWriteStatus.Failure;
-            }
-        }
-
-        public void Cancel()
-        {
-            if (!IsActive)
-            {
-                Debug.WriteLine($"(DownloadFile_Cancel) File {Name} is already downloaded/cancelled!");
+                Debug.WriteLine($"(DownloadFile_TryWrite) Download of file {Name} is not active!");
 
                 return;
             }
 
-            Debug.WriteLine($"(DownloadFile_Cancel) {Name}: download has been cancelled!");
+            AddReceivedBytes(segment);
 
-            IsCancelled = true;
-            ShutdownFile();
+            var message = new NetDataWriter();
+            message.Put((byte)NetMessageType.FileSegmentAck);
+            message.Put(ID);
 
+            Server.SendEncrypted(message, 0);
+        }
+
+        public void CancelWithDeletion()
+        {
+            Cancel();
             try
             {
                 File.Delete(FilePath);
@@ -253,6 +226,29 @@ namespace FileSharing.Models
             catch (Exception)
             {
             }
+        }
+
+        public void Cancel()
+        {
+            if (!IsActive)
+            {
+                Debug.WriteLine($"(DownloadFile_SendFileDenial) File {Name} is already downloaded/cancelled!");
+
+                return;
+            }
+
+            IsCancelled = true;
+            ShutdownFile();
+            SendCancellationMessage();
+        }
+
+        private void SendCancellationMessage()
+        {
+            var message = new NetDataWriter();
+            message.Put((byte)NetMessageType.CancelDownload);
+            message.Put(ID);
+
+            Server.SendEncrypted(message, 0);
         }
     }
 }
