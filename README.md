@@ -10,7 +10,6 @@ WPF-MVVM app for sharing any files between computers.
 * User is able to see current and previous downloads/uploads
 * The app can be hidden in system tray
 * User is able to specify port for local file server
-* The app checks if some of file segments didn't reach the client and automatically sends requests for missing segments
 * Drag'n'drop support for shared files
 ## ⚠ Warning
 Encryption scheme implemented in this project may be vulnerable to various attacks such as MITM, replay attack, etc.\
