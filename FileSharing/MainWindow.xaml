@@ -154,9 +154,6 @@
                                                         Text="{Binding FileHash, StringFormat={}SHA256 Hash: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource PopUpTextBlock}" 
-                                                        Text="{Binding ResendedFileSegments, StringFormat={}Resended file segments: {0}}"/>
-                                                    <TextBlock 
-                                                        Style="{StaticResource PopUpTextBlock}" 
                                                         Text="{Binding StartTime, Converter={StaticResource DateTimeConverter}, StringFormat={}Start time: {0}}"/>
                                                     <TextBlock 
                                                         Style="{StaticResource FinishTimeTextBlock}"/>

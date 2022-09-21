@@ -8,24 +8,27 @@ namespace FileSharing.Models
     public sealed class SharedFile : ObservableObject
     {
         private FileStream? _stream;
-        private bool _isHashCalculated;
-        private string _hash = string.Empty;
+        private string _hash = CryptographyModule.DefaultFileHash;
         private string _name = string.Empty;
         private long _size;
         private long _numberOfSegments;
+        private bool _isActive;
 
         public SharedFile(long index, string path)
         {
             Index = index;
             FilePath = path;
-            IsHashCalculated = false;
+            IsActive = false;
         }
+
+        public event EventHandler<EventArgs>? Closed;
 
         public long Index { get; }
         public string FilePath { get; }
+        public bool IsHashCalculated => Hash != CryptographyModule.DefaultFileHash;
 
         public string Name
-        { 
+        {
             get => _name;
             private set => SetProperty(ref _name, value);
         }
@@ -41,17 +44,21 @@ namespace FileSharing.Models
             get => _numberOfSegments;
             private set => SetProperty(ref _numberOfSegments, value);
         }
-       
-        public bool IsHashCalculated
-        {
-            get => _isHashCalculated;
-            private set => SetProperty(ref _isHashCalculated, value);
-        }
 
         public string Hash
         {
             get => _hash;
-            private set => SetProperty(ref _hash, value);
+            private set
+            {
+                SetProperty(ref _hash, value);
+                OnPropertyChanged(nameof(IsHashCalculated));
+            }
+        }
+
+        public bool IsActive
+        {
+            get => _isActive;
+            private set => SetProperty(ref _isActive, value);
         }
 
         public bool TryOpenStream()
@@ -77,9 +84,12 @@ namespace FileSharing.Models
             {
                 _stream.Close();
             }
+
+            IsActive = false;
+            Closed?.Invoke(this, EventArgs.Empty);
         }
 
-        public bool TryComputeHashOfFile()
+        public bool TryComputeFileHash()
         {
             if (IsHashCalculated)
             {
@@ -93,7 +103,7 @@ namespace FileSharing.Models
             }
 
             Hash = fileHash;
-            IsHashCalculated = true;
+            IsActive = true;
 
             return true;
         }

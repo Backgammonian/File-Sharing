@@ -9,6 +9,5 @@
         FileSegment,
         FileSegmentAck,
         CancelDownload,
-        ResendFileSegment
     }
 }

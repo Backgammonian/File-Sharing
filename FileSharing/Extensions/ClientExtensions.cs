@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 using LiteNetLib.Utils;
 using FileSharing.Networking;
 using FileSharing.Models;
@@ -25,31 +23,6 @@ namespace Extensions
             message.Put((byte)NetMessageType.FileRequest);
             message.Put(download.Hash);
             message.Put(download.ID);
-
-            server.SendEncrypted(message, 0);
-        }
-
-        public static void SendFileSegmentAck(this EncryptedPeer server, string downloadID, long numOfSegment)
-        {
-            Debug.WriteLine($"(SendFileSegmentAck) {downloadID}");
-
-            var message = new NetDataWriter();
-            message.Put((byte)NetMessageType.FileSegmentAck);
-            message.Put(downloadID);
-            message.Put(numOfSegment);
-
-            server.SendEncrypted(message, 0);
-        }
-
-        public static void RequestFileSegment(this EncryptedPeer server, string downloadID, string fileHash, long numOfSegment)
-        {
-            Debug.WriteLine("(RequestFileSegment) " + fileHash + ", segment №" + numOfSegment);
-
-            var message = new NetDataWriter();
-            message.Put((byte)NetMessageType.ResendFileSegment);
-            message.Put(downloadID);
-            message.Put(fileHash);
-            message.Put(numOfSegment);
 
             server.SendEncrypted(message, 0);
         }

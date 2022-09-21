@@ -21,7 +21,7 @@ namespace FileSharing.Models
         public IEnumerable<Upload> UploadsList =>
             _uploads.Values.OrderBy(upload => upload.StartTime);
 
-        public Upload? Get(string uploadID)
+        public Upload? GetUploadByID(string uploadID)
         {
             return Has(uploadID) ? _uploads[uploadID] : null;
         }
@@ -57,13 +57,6 @@ namespace FileSharing.Models
             {
                 upload.Cancel();
             }
-        }
-
-        public List<Upload> GetAllUploadsOfFile(string fileHash)
-        {
-            return _uploads.Values
-                .Where(upload => upload.FileHash == fileHash)
-                .ToList();
         }
     }
 }

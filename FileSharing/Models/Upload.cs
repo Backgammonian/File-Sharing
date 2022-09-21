@@ -1,43 +1,48 @@
 ﻿using System;
 using System.Diagnostics;
 using Microsoft.Toolkit.Mvvm.ComponentModel;
+using LiteNetLib.Utils;
 using FileSharing.Networking;
 
 namespace FileSharing.Models
 {
     public sealed class Upload : ObservableObject
     {
+        private readonly SharedFile _sharedFile;
+        private readonly SpeedCounter _uploadSpeedCounter;
         private long _numberOfAckedSegments;
         private bool _isFinished;
         private bool _isCancelled;
-        private DateTime _startTime;
+        private bool _isStarted;
         private DateTime _finishTime;
-        private long _resendedFileSegments;
 
-        public Upload(string id, string fileName, long fileSize, string fileHash, EncryptedPeer destination, long numberOfSegments)
+        public Upload(string id, SharedFile sharedFile, EncryptedPeer destination)
         {
+            _sharedFile = sharedFile;
+            _sharedFile.Closed += OnSharedFileClosed;
+            _uploadSpeedCounter = new SpeedCounter();
+            _uploadSpeedCounter.Updated += OnUploadSpeedCounterUpdated;
             ID = id;
-            FileName = fileName;
-            FileSize = fileSize;
-            FileHash = fileHash;
             Destination = destination;
-            NumberOfSegments = numberOfSegments;
             NumberOfAckedSegments = 0;
             IsFinished = false;
             IsCancelled = false;
+            IsStarted = false;
             StartTime = DateTime.Now;
-            ResendedFileSegments = 0;
         }
 
         public string ID { get; }
-        public string FileName { get; }
-        public long FileSize { get; }
-        public string FileHash { get; }
         public EncryptedPeer Destination { get; }
-        public long NumberOfSegments { get; }
-        public bool IsActive => !IsCancelled && !IsFinished;
+        public DateTime StartTime { get; }
+        public string FileName => _sharedFile.Name;
+        public long FileSize => _sharedFile.Size;
+        public string FileHash => _sharedFile.Hash;
+        public long NumberOfSegments => _sharedFile.NumberOfSegments;
+        public bool IsActive => !IsCancelled && !IsFinished && IsStarted;
         public decimal Progress => NumberOfAckedSegments / Convert.ToDecimal(NumberOfSegments);
-        public double AverageSpeed => (NumberOfAckedSegments - NumberOfSegments) / (DateTime.Now - StartTime).TotalSeconds;
+        public double UploadSpeed => _uploadSpeedCounter.Speed;
+        public double AverageSpeed => _uploadSpeedCounter.AverageSpeed;
+        public long BytesUploaded => _uploadSpeedCounter.Bytes;
 
         public long NumberOfAckedSegments
         {
@@ -46,7 +51,11 @@ namespace FileSharing.Models
             {
                 SetProperty(ref _numberOfAckedSegments, value);
                 OnPropertyChanged(nameof(Progress));
-                OnPropertyChanged(nameof(AverageSpeed));
+
+                if (NumberOfSegments == NumberOfAckedSegments)
+                {
+                    Finish();
+                }
             }
         }
 
@@ -61,12 +70,6 @@ namespace FileSharing.Models
             get => _isCancelled;
             private set => SetProperty(ref _isCancelled, value);
         }
-        
-        public DateTime StartTime
-        {
-            get => _startTime;
-            private set => SetProperty(ref _startTime, value);
-        }
 
         public DateTime FinishTime
         {
@@ -74,10 +77,28 @@ namespace FileSharing.Models
             private set => SetProperty(ref _finishTime, value);
         }
 
-        public long ResendedFileSegments
+        public bool IsStarted
         {
-            get => _resendedFileSegments;
-            private set => SetProperty(ref _resendedFileSegments, value);
+            get => _isStarted;
+            private set => SetProperty(ref _isStarted, value);
+        }
+
+        private void OnUploadSpeedCounterUpdated(object? sender, EventArgs e)
+        {
+            UpdateParameters();
+        }
+
+        private void UpdateParameters()
+        {
+            OnPropertyChanged(nameof(UploadSpeed));
+            OnPropertyChanged(nameof(AverageSpeed));
+            OnPropertyChanged(nameof(BytesUploaded));
+        }
+
+        private void OnSharedFileClosed(object? sender, EventArgs e)
+        {
+            Cancel();
+            _sharedFile.Closed -= OnSharedFileClosed;
         }
 
         private void Finish()
@@ -86,54 +107,74 @@ namespace FileSharing.Models
             FinishTime = DateTime.Now;
         }
 
-        public UploadingFileAckStatus AddAck(long numOfSegment)
+        public bool AddAck()
         {
-            if (IsFinished)
-            {
-                Debug.WriteLine($"(Upload_AddAck) Upload of file {FileName} is finished already!");
-
-                return UploadingFileAckStatus.DoNothing;
-            }
-
             if (!IsActive)
             {
-                Debug.WriteLine($"(Upload_AddAck) Upload of file {FileName} is no longer active");
+                Debug.WriteLine($"(Upload_AddAck) Can't receive ACK for file {FileName}, upload {ID}");
 
-                return UploadingFileAckStatus.DoNothing;
+                return false;
             }
-
-            if (numOfSegment < 0 ||
-                numOfSegment >= NumberOfSegments)
-            {
-                Debug.WriteLine($"(Upload_AddAck) File {FileName}: wrong number of incoming file segment");
-
-                return UploadingFileAckStatus.DoNothing;
-            }
-
-            Debug.WriteLine($"(Upload_AddAck) Receiving ACK for file {FileName}: #{numOfSegment}");
 
             NumberOfAckedSegments += 1;
-            if (NumberOfSegments == NumberOfAckedSegments)
-            {
-                Finish();
-            }
 
-            return UploadingFileAckStatus.Success;
+            return true;
         }
 
         public void Cancel()
         {
-            if (IsFinished)
+            if (IsFinished ||
+                IsCancelled)
             {
                 return;
             }
 
             IsCancelled = true;
+            SendCancellationMessage();
         }
 
-        public void AddResendedSegment()
+        private void SendCancellationMessage()
         {
-            ResendedFileSegments += 1;
+            var message = new NetDataWriter();
+            message.Put((byte)NetMessageType.CancelDownload);
+            message.Put(ID);
+
+            Destination.SendEncrypted(message, 0);
+        }
+
+        public void StartUpload()
+        {
+            IsStarted = true;
+            SendSegmentInternal(0);
+        }
+
+        public void SendNextFileSegment()
+        {
+            SendSegmentInternal(NumberOfAckedSegments);
+        }
+
+        private void SendSegmentInternal(long numberOfSegment)
+        {
+            if (!_sharedFile.IsActive)
+            {
+                return;
+            }
+
+            var segment = _sharedFile.TryReadSegment(numberOfSegment);
+            if (segment.Length == 0)
+            {
+                return;
+            }
+
+            _uploadSpeedCounter.AddBytes(segment.Length);
+
+            var message = new NetDataWriter();
+            message.Put((byte)NetMessageType.FileSegment);
+            message.Put(ID);
+            message.Put(segment.Length);
+            message.Put(segment);
+
+            Destination.SendEncrypted(message, 1);
         }
     }
 }

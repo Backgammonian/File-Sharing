@@ -134,7 +134,7 @@ namespace FileSharing.Networking
                 sendingMessage.Put(iv.Length);
                 sendingMessage.Put(iv);
 
-                _uploadSpeedCounter.AddBytes(sendingMessage.Length);
+                _uploadSpeedCounter.AddBytes(sendingMessage.Data.Length);
                 _peer.Send(sendingMessage, channelNumber, DeliveryMethod.ReliableOrdered);
             }
         }
@@ -153,7 +153,7 @@ namespace FileSharing.Networking
                 _cryptography.TryDecrypt(encryptedMessage, iv, out byte[] decryptedMessage) &&
                 decryptedMessage.TryDecompressByteArray(out byte[] data))
             {
-                _downloadSpeedCounter.AddBytes(message.AvailableBytes);
+                _downloadSpeedCounter.AddBytes(message.RawData.Length);
 
                 return new NetDataReader(data);
             }
