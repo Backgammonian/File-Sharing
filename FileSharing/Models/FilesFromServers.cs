@@ -9,16 +9,17 @@ namespace FileSharing.Models
     {
         //server ID (from NetPeer object), list of files
         private readonly ConcurrentDictionary<int, FilesFromServer> _filesFromServers;
+        private readonly List<SharedFileInfo> _filesList;
 
         public FilesFromServers()
         {
             _filesFromServers = new ConcurrentDictionary<int, FilesFromServer>();
-            List = new List<SharedFileInfo>();
+            _filesList = new List<SharedFileInfo>();
         }
 
         public event EventHandler<EventArgs>? FilesUpdated;
 
-        public List<SharedFileInfo> List { get; }
+        public IReadOnlyCollection<SharedFileInfo> List => _filesList;
 
         public FilesFromServer? GetServerByID(int serverID)
         {
@@ -54,17 +55,15 @@ namespace FileSharing.Models
 
         private void OnFileListUpdated(object? sender, EventArgs e)
         {
-            List.Clear();
-
+            _filesList.Clear();
             foreach (var serverFilesList in _filesFromServers.Values)
             {
                 var files = serverFilesList.Files;
                 foreach (var file in files)
                 {
-                    List.Add(file);
+                    _filesList.Add(file);
                 }
             }
-
             FilesUpdated?.Invoke(this, EventArgs.Empty);
         }
     }

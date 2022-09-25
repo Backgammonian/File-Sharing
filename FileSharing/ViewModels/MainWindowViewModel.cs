@@ -703,6 +703,7 @@ namespace FileSharing.ViewModels
         #endregion
     }
 
+    #region Notifications and system tray
     public partial class MainWindowViewModel
     {
         private NotifyIconWrapper.NotifyRequestRecord? _notifyRequest;
@@ -774,4 +775,5 @@ namespace FileSharing.ViewModels
             NotifyIconExitCommand = new RelayCommand(ShutdownApp);
         }
     }
+    #endregion
 }

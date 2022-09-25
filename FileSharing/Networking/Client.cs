@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using System.Net;
 using LiteNetLib;
 using LiteNetLib.Layers;
-using Extensions;
 
 namespace FileSharing.Networking
 {
