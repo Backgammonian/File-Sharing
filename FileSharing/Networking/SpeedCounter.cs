@@ -57,13 +57,12 @@ namespace FileSharing.Networking
 
             var seconds = _stopwatch.Elapsed.Seconds > 0 ? _stopwatch.Elapsed.Seconds : 0.01;
             _averageSpeed = _currentAmountOfBytes / Convert.ToDouble(seconds);
-
-            Updated?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnTimerTick(object? sender, EventArgs e)
         {
             PerformCalculations();
+            Updated?.Invoke(this, EventArgs.Empty);
         }
 
         public void AddBytes(long newBytes)
@@ -71,12 +70,14 @@ namespace FileSharing.Networking
             _currentAmountOfBytes += newBytes;
 
             PerformCalculations();
+            Updated?.Invoke(this, EventArgs.Empty);
         }
 
         public void Stop()
         {
             _speed = 0;
             _timer.Stop();
+            Updated?.Invoke(this, EventArgs.Empty);
         }
     }
 }

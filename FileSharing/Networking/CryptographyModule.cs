@@ -22,9 +22,11 @@ namespace FileSharing.Networking
             _ecdh = new ECDiffieHellmanCng();
             _ecdh.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
             _ecdh.HashAlgorithm = CngAlgorithm.Sha256;
-            _publicKey = _ecdh.PublicKey.ToByteArray();
             _signature = CngKey.Create(CngAlgorithm.ECDsaP256);
+
+            _publicKey = _ecdh.PublicKey.ToByteArray();
             _signaturePublicKey = _signature.Export(CngKeyBlobFormat.GenericPublicBlob);
+
             _privateKey = Array.Empty<byte>();
             _recipientsSignaturePublicKey = Array.Empty<byte>();
 
@@ -38,14 +40,6 @@ namespace FileSharing.Networking
         {
             get => _isEnabled;
             private set => SetProperty(ref _isEnabled, value);
-        }
-
-        public void SetKeys(byte[] publicKey, byte[] signaturePublicKey)
-        {
-            _privateKey = _ecdh.DeriveKeyMaterial(CngKey.Import(publicKey, CngKeyBlobFormat.EccPublicBlob));
-            _recipientsSignaturePublicKey = (byte[])signaturePublicKey.Clone();
-
-            IsEnabled = true;
         }
 
         public bool TrySetKeys(byte[] publicKey, byte[] signaturePublicKey)
