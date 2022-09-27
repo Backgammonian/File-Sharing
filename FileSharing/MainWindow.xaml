@@ -291,7 +291,7 @@
                                                     <TextBlock 
                                                         Style="{StaticResource BaseTextBlockStyle}" 
                                                         Text="{Binding Server, Converter={StaticResource IpEndPointConverter}, StringFormat={}Source: {0}}"/>
-                                                    <TextBlock 
+                                                    <TextBlock
                                                         Style="{StaticResource BaseTextBlockStyle}" 
                                                         Text="{Binding Size, Converter={StaticResource BytesToMegabytesConverter}}"/>
                                                     <TextBlock 
